@@ -3,13 +3,13 @@ import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Header } from "@/components/header";
 import { Sidebar } from "@/components/sidebar";
-import { UploadModal } from "@/components/upload-modal";
+import { UploadModal, UploadFileData } from "@/components/upload-modal";
 
 export default function AppLayout() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
-  const handleUpload = (file: File, encrypt: boolean) => {
-    console.log(`Uploading file: ${file.name}, Encrypt: ${encrypt}`);
+  const handleUpload = (fileData: UploadFileData) => {
+    console.log(`Uploading file: ${fileData.file.name}, Encrypt: ${fileData.encrypt}`);
     // Implement file upload logic
   };
   

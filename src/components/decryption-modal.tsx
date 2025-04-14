@@ -1,6 +1,6 @@
 
 import { useState, useRef } from "react";
-import { X, Upload, File, Key, Lock, Unlock } from "lucide-react";
+import { X, Upload, File, Key, Lock, Unlock, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

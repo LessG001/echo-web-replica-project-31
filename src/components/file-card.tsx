@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Star, Download } from "lucide-react";
+import { Star, Download, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FileIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { FileGrid } from "@/components/file-grid";
@@ -9,6 +8,7 @@ import { mockFiles } from "@/data/files";
 import { Button } from "@/components/ui/button";
 import { NavIcons } from "@/components/ui/icons";
 import { calculateChecksum } from "@/utils/encryption";
+import { Unlock } from "lucide-react";
 
 export default function Dashboard() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -116,7 +116,7 @@ export default function Dashboard() {
             variant="outline" 
             onClick={() => setIsDecryptModalOpen(true)}
           >
-            <NavIcons.Unlock className="h-4 w-4 mr-2" />
+            <Unlock className="h-4 w-4 mr-2" />
             Decrypt File
           </Button>
           <Button onClick={() => setIsUploadModalOpen(true)}>
