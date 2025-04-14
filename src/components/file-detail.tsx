@@ -4,6 +4,17 @@ import { FileIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { NavIcons } from "@/components/ui/icons";
 import { Lock } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface FileDetailProps {
   file: {
@@ -25,21 +36,54 @@ interface FileDetailProps {
 }
 
 export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailProps) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { toast } = useToast();
+  
+  const handleDownload = () => {
+    onDownload();
+    toast({
+      title: "Download started",
+      description: `${file.name} is being downloaded`,
+    });
+  };
+  
+  const handleShare = () => {
+    onShare();
+    toast({
+      title: "Sharing options",
+      description: `Sharing options for ${file.name} opened`,
+    });
+  };
+  
+  const handleDelete = () => {
+    setDeleteDialogOpen(true);
+  };
+  
+  const confirmDelete = () => {
+    onDelete();
+    setDeleteDialogOpen(false);
+    toast({
+      title: "File deleted",
+      description: `${file.name} has been deleted`,
+      variant: "destructive",
+    });
+  };
+  
   return (
     <div className="flex flex-col h-full">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">{file.name}</h2>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onDownload}>
+          <Button variant="outline" size="sm" onClick={handleDownload}>
             <NavIcons.Download className="h-4 w-4 mr-2" />
             Download
           </Button>
-          <Button variant="outline" size="sm" onClick={onShare}>
+          <Button variant="outline" size="sm" onClick={handleShare}>
             <NavIcons.Shared className="h-4 w-4 mr-2" />
             Share
           </Button>
-          <Button variant="outline" size="icon" className="text-destructive">
-            <NavIcons.Delete className="h-4 w-4" onClick={onDelete} />
+          <Button variant="outline" size="icon" className="text-destructive" onClick={handleDelete}>
+            <NavIcons.Delete className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -113,6 +157,23 @@ export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailPr
           </div>
         </div>
       </div>
+      
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure you want to delete this file?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete {file.name}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

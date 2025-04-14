@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { NavIcons } from "@/components/ui/icons";
 import { FileDetail } from "@/components/file-detail";
 import { getFileById } from "@/data/files";
+import { useToast } from "@/hooks/use-toast";
 
 export default function FileDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const file = id ? getFileById(id) : null;
   
@@ -41,15 +43,25 @@ export default function FileDetailsPage() {
   }
   
   const handleDownload = () => {
-    console.log(`Downloading file: ${file.name}`);
+    toast({
+      title: "Download started",
+      description: `${file.name} is being downloaded`,
+    });
   };
   
   const handleShare = () => {
-    console.log(`Sharing file: ${file.name}`);
+    toast({
+      title: "Sharing options",
+      description: `Share options for ${file.name} opened`,
+    });
   };
   
   const handleDelete = () => {
-    console.log(`Deleting file: ${file.name}`);
+    toast({
+      title: "File deleted",
+      description: `${file.name} has been deleted`,
+      variant: "destructive",
+    });
     navigate("/dashboard");
   };
   

@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { FileIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export interface FileInfo {
   id: string;
@@ -25,13 +26,23 @@ interface FileCardProps {
 
 export function FileCard({ file, onToggleFavorite, className }: FileCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const { toast } = useToast();
   
   // Extract file extension from name if not provided
   const fileExtension = file.extension || file.name.split('.').pop() || '';
   
+  const handleToggleFavorite = () => {
+    onToggleFavorite(file.id);
+    toast({
+      description: file.isFavorite 
+        ? `${file.name} removed from favorites` 
+        : `${file.name} added to favorites`,
+    });
+  };
+  
   return (
     <div 
-      className={cn("file-card flex flex-col", className)}
+      className={cn("file-card flex flex-col p-4 bg-card border border-border/40 rounded-lg", className)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -51,7 +62,7 @@ export function FileCard({ file, onToggleFavorite, className }: FileCardProps) {
             variant="ghost" 
             size="icon" 
             className="h-8 w-8 rounded-full" 
-            onClick={() => onToggleFavorite(file.id)}
+            onClick={handleToggleFavorite}
           >
             <Star 
               className={cn(
@@ -65,7 +76,7 @@ export function FileCard({ file, onToggleFavorite, className }: FileCardProps) {
       
       <div className="mt-auto pt-2 flex flex-wrap gap-1">
         {file.tags.map((tag) => (
-          <span key={tag} className="badge">{tag}</span>
+          <span key={tag} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-secondary/40 text-foreground">{tag}</span>
         ))}
       </div>
       

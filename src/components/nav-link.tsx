@@ -1,5 +1,5 @@
 
-import { Link } from "react-router-dom";
+import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 
@@ -9,20 +9,26 @@ interface NavLinkProps {
   icon: LucideIcon;
   active?: boolean;
   className?: string;
+  onClick?: () => void;
 }
 
-export function NavLink({ to, label, icon: Icon, active, className }: NavLinkProps) {
-  return (
-    <Link
-      to={to}
-      className={cn(
-        "nav-item",
-        active && "active",
-        className
-      )}
-    >
-      <Icon className="h-5 w-5" />
-      <span>{label}</span>
-    </Link>
-  );
-}
+export const NavLink = forwardRef<HTMLButtonElement, NavLinkProps>(
+  ({ to, label, icon: Icon, active, className, onClick }, ref) => {
+    return (
+      <button
+        ref={ref}
+        onClick={onClick}
+        className={cn(
+          "nav-item",
+          active && "active",
+          className
+        )}
+      >
+        <Icon className="h-5 w-5" />
+        <span>{label}</span>
+      </button>
+    );
+  }
+);
+
+NavLink.displayName = "NavLink";
