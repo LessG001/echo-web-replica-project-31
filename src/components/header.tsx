@@ -16,22 +16,26 @@ interface HeaderProps {
     image?: string;
     initials?: string;
   };
+  onLoginClick?: () => void;
+  onGetStartedClick?: () => void;
 }
 
-export function Header({ user }: HeaderProps) {
+export function Header({ user, onLoginClick, onGetStartedClick }: HeaderProps) {
   const { toggleSidebar } = useMobileContext();
   
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={toggleSidebar}
-      >
-        <Menu className="h-6 w-6" />
-        <span className="sr-only">Toggle Menu</span>
-      </Button>
+      {toggleSidebar && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={toggleSidebar}
+        >
+          <Menu className="h-6 w-6" />
+          <span className="sr-only">Toggle Menu</span>
+        </Button>
+      )}
       
       <div className="w-full flex-1">
         <div className="flex items-center gap-2">
@@ -83,16 +87,28 @@ export function Header({ user }: HeaderProps) {
               className="h-8 w-8 border border-border/40"
             />
           ) : (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1 text-xs"
-              asChild
-            >
-              <NavLink to="/login">
-                Log in
-              </NavLink>
-            </Button>
+            <>
+              {onLoginClick && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-xs"
+                  onClick={onLoginClick}
+                >
+                  Log in
+                </Button>
+              )}
+              {onGetStartedClick && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="gap-1 text-xs hidden sm:flex"
+                  onClick={onGetStartedClick}
+                >
+                  Get Started
+                </Button>
+              )}
+            </>
           )}
         </nav>
       </div>
