@@ -16,6 +16,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface EncryptionData {
+  algorithm: string;
+  encryptionKey: string;
+  iv: string;
+}
+
 interface FileDetailProps {
   file: {
     id: string;
@@ -29,6 +35,7 @@ interface FileDetailProps {
     modifiedBy: string;
     isEncrypted: boolean;
     checksum?: string;
+    encryptionData?: EncryptionData;
   };
   onDownload: () => void;
   onShare: () => void;
@@ -41,18 +48,10 @@ export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailPr
   
   const handleDownload = () => {
     onDownload();
-    toast({
-      title: "Download started",
-      description: `${file.name} is being downloaded`,
-    });
   };
   
   const handleShare = () => {
     onShare();
-    toast({
-      title: "Sharing options",
-      description: `Sharing options for ${file.name} opened`,
-    });
   };
   
   const handleDelete = () => {
@@ -62,11 +61,6 @@ export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailPr
   const confirmDelete = () => {
     onDelete();
     setDeleteDialogOpen(false);
-    toast({
-      title: "File deleted",
-      description: `${file.name} has been deleted`,
-      variant: "destructive",
-    });
   };
   
   return (
@@ -88,72 +82,72 @@ export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailPr
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-card rounded-lg border border-border/40 flex items-center justify-center p-12">
-          <div className="flex flex-col items-center">
-            <FileIcon extension={file.extension} size={96} className="mb-4" />
+      <div className="bg-card rounded-lg border border-border/40 p-6">
+        <div className="flex items-center mb-6">
+          <div className="mr-6">
+            <FileIcon extension={file.extension} size={64} className="mb-4" />
+          </div>
+          <div>
             <h3 className="text-lg font-medium">{file.name}</h3>
             <p className="text-sm text-muted-foreground">{file.size}</p>
           </div>
         </div>
         
-        <div className="bg-card rounded-lg border border-border/40 p-6">
-          <h3 className="text-lg font-medium mb-4">File Information</h3>
+        <h3 className="text-lg font-medium mb-4">File Information</h3>
+        
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Type:</p>
+              <p className="font-medium">{file.type}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Size:</p>
+              <p className="font-medium">{file.size}</p>
+            </div>
+          </div>
           
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Type:</p>
-                <p className="font-medium">{file.type}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Size:</p>
-                <p className="font-medium">{file.size}</p>
-              </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Created:</p>
+              <p className="font-medium">{file.created}</p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Created:</p>
-                <p className="font-medium">{file.created}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Modified:</p>
-                <p className="font-medium">{file.modified}</p>
-              </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Modified:</p>
+              <p className="font-medium">{file.modified}</p>
             </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Created By:</p>
-                <p className="font-medium">{file.createdBy}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Modified By:</p>
-                <p className="font-medium">{file.modifiedBy}</p>
-              </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Created By:</p>
+              <p className="font-medium">{file.createdBy}</p>
             </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Modified By:</p>
+              <p className="font-medium">{file.modifiedBy}</p>
+            </div>
+          </div>
+          
+          <div className="pt-4 mt-4 border-t border-border/40">
+            <h4 className="text-md font-medium mb-4">Security</h4>
             
-            <div className="pt-4 mt-4 border-t border-border/40">
-              <h4 className="text-md font-medium mb-4">Security</h4>
-              
-              {file.isEncrypted && (
-                <div className="bg-secondary/50 rounded-lg p-4 flex items-center">
-                  <Lock className="h-5 w-5 text-primary mr-3" />
-                  <div>
-                    <p className="font-medium">This file is encrypted</p>
-                    <p className="text-sm text-muted-foreground">Only authorized users can view the contents</p>
-                  </div>
+            {file.isEncrypted && (
+              <div className="bg-secondary/50 rounded-lg p-4 flex items-center">
+                <Lock className="h-5 w-5 text-primary mr-3" />
+                <div>
+                  <p className="font-medium">This file is encrypted</p>
+                  <p className="text-sm text-muted-foreground">Only authorized users can view the contents</p>
                 </div>
-              )}
-              
-              {file.checksum && (
-                <div className="mt-4">
-                  <p className="text-sm text-muted-foreground mb-1">Checksum:</p>
-                  <p className="text-xs font-mono bg-secondary/40 p-2 rounded overflow-auto">{file.checksum}</p>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
+            
+            {file.checksum && (
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground mb-1">Checksum (SHA-256):</p>
+                <p className="text-xs font-mono bg-secondary/40 p-2 rounded overflow-auto">{file.checksum}</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

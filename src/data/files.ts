@@ -1,182 +1,141 @@
-
-import { FileInfo } from "@/components/file-card";
-
-export const mockFiles: FileInfo[] = [
-  {
-    id: "file-0",
-    name: "File-0.jpg",
-    extension: "jpg",
-    size: "100 KB",
-    tags: ["project"],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
-  },
+export const mockFiles = [
   {
     id: "file-1",
-    name: "File-1.txt",
-    extension: "txt",
-    size: "10 MB",
-    tags: ["tax", "work"],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
+    name: "Project_Budget_2023.xlsx",
+    extension: "xlsx",
+    size: "245.3 KB",
+    tags: ["document", "important"],
+    timestamp: "Yesterday at 2:30 PM",
+    isFavorite: true,
+    isShared: true,
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    created: "2023-04-12 14:30:25",
+    modified: "2023-04-12 16:45:12",
+    createdBy: "John Doe",
+    modifiedBy: "John Doe",
+    isEncrypted: false
   },
   {
     id: "file-2",
-    name: "File-2.jpg",
-    extension: "jpg",
-    size: "1.5 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
+    name: "Marketing_Strategy.pdf",
+    extension: "pdf",
+    size: "1.2 MB",
+    tags: ["document", "marketing"],
+    timestamp: "Apr 10, 2023",
     isFavorite: false,
-    isShared: false
+    isShared: false,
+    type: "application/pdf",
+    created: "2023-04-10 09:15:33",
+    modified: "2023-04-10 09:15:33",
+    createdBy: "Jane Smith",
+    modifiedBy: "Jane Smith",
+    isEncrypted: false
   },
   {
     id: "file-3",
-    name: "File-3.xlsx",
-    extension: "xlsx",
-    size: "25 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: true
+    name: "Company_Logo.png",
+    extension: "png",
+    size: "320 KB",
+    tags: ["image", "branding"],
+    timestamp: "Mar 28, 2023",
+    isFavorite: true,
+    isShared: true,
+    type: "image/png",
+    created: "2023-03-28 11:22:05",
+    modified: "2023-03-28 11:22:05",
+    createdBy: "Design Team",
+    modifiedBy: "Design Team",
+    isEncrypted: false
   },
   {
     id: "file-4",
-    name: "File-4.xlsx",
-    extension: "xlsx",
-    size: "100 KB",
-    tags: ["project"],
-    timestamp: "less than a minute ago",
+    name: "Client_Meeting_Notes.docx",
+    extension: "docx",
+    size: "78.5 KB",
+    tags: ["document", "meeting"],
+    timestamp: "Mar 15, 2023",
     isFavorite: false,
-    isShared: false
+    isShared: false,
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    created: "2023-03-15 15:45:12",
+    modified: "2023-03-15 16:12:44",
+    createdBy: "John Doe",
+    modifiedBy: "John Doe",
+    isEncrypted: false
   },
   {
     id: "file-5",
-    name: "File-5.png",
-    extension: "png",
-    size: "3 MB",
-    tags: ["backup"],
-    timestamp: "less than a minute ago",
+    name: "Product_Demo.mp4",
+    extension: "mp4",
+    size: "24.8 MB",
+    tags: ["video", "product"],
+    timestamp: "Mar 8, 2023",
     isFavorite: false,
-    isShared: false
+    isShared: true,
+    type: "video/mp4",
+    created: "2023-03-08 13:10:05",
+    modified: "2023-03-08 13:10:05",
+    createdBy: "Marketing Team",
+    modifiedBy: "Marketing Team",
+    isEncrypted: false
   },
   {
     id: "file-6",
-    name: "File-6.txt",
-    extension: "txt",
-    size: "3 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
+    name: "Financial_Report_Q1.pdf",
+    extension: "pdf",
+    size: "850 KB",
+    tags: ["document", "financial"],
+    timestamp: "Feb 28, 2023",
+    isFavorite: true,
+    isShared: false,
+    type: "application/pdf",
+    created: "2023-02-28 08:45:33",
+    modified: "2023-02-28 09:12:18",
+    createdBy: "Finance Department",
+    modifiedBy: "Finance Department",
+    isEncrypted: true,
+    checksum: "8a9d5f3c2e1b7a6d4f8c2e5a9d7b3f6c2e5a8d4f",
+    encryptionData: {
+      algorithm: "AES-GCM",
+      encryptionKey: "dGhpc2lzYXNlY3JldGtleXRoYXR3b3VsZGJldXNlZGZvcmRlbW8=",
+      iv: "cmFuZG9taXZmb3JkZW1v"
+    }
   },
   {
     id: "file-7",
-    name: "File-7.jpg",
-    extension: "jpg",
-    size: "1.5 MB",
-    tags: ["work"],
-    timestamp: "less than a minute ago",
+    name: "Project_Timeline.xlsx",
+    extension: "xlsx",
+    size: "180.2 KB",
+    tags: ["document", "project"],
+    timestamp: "Feb 15, 2023",
     isFavorite: false,
-    isShared: false
+    isShared: false,
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    created: "2023-02-15 14:22:45",
+    modified: "2023-02-15 14:22:45",
+    createdBy: "Project Management",
+    modifiedBy: "Project Management",
+    isEncrypted: false
   },
   {
     id: "file-8",
-    name: "File-8.xlsx",
-    extension: "xlsx",
-    size: "10 MB",
-    tags: ["important"],
-    timestamp: "less than a minute ago",
-    isFavorite: true,
-    isShared: false
-  },
-  {
-    id: "file-9",
-    name: "File-9.zip",
-    extension: "zip",
-    size: "100 KB",
-    tags: ["personal", "work"],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
-  },
-  {
-    id: "file-10",
-    name: "File-10.pdf",
-    extension: "pdf",
-    size: "10 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
-    isFavorite: true,
-    isShared: false
-  },
-  {
-    id: "file-11",
-    name: "File-11.txt",
-    extension: "txt",
-    size: "25 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: true
-  },
-  {
-    id: "file-12",
-    name: "File-12.zip",
-    extension: "zip",
-    size: "3 MB",
-    tags: ["important"],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
-  },
-  {
-    id: "file-13",
-    name: "File-13.jpg",
+    name: "Team_Photo.jpg",
     extension: "jpg",
-    size: "10 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
+    size: "1.5 MB",
+    tags: ["image", "team"],
+    timestamp: "Jan 28, 2023",
     isFavorite: false,
-    isShared: false
-  },
-  {
-    id: "file-14",
-    name: "File-14.xlsx",
-    extension: "xlsx",
-    size: "10 MB",
-    tags: [],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
-  },
-  {
-    id: "file-15",
-    name: "File-15.xlsx",
-    extension: "xlsx",
-    size: "100 KB",
-    tags: ["important"],
-    timestamp: "less than a minute ago",
-    isFavorite: false,
-    isShared: false
+    isShared: true,
+    type: "image/jpeg",
+    created: "2023-01-28 16:30:12",
+    modified: "2023-01-28 16:30:12",
+    createdBy: "HR Department",
+    modifiedBy: "HR Department",
+    isEncrypted: false
   }
 ];
 
-export const getFileById = (id: string) => {
-  const file = mockFiles.find(file => file.id === id);
-  
-  if (!file) return null;
-  
-  return {
-    ...file,
-    type: file.extension.toUpperCase(),
-    created: "less than a minute ago",
-    modified: "less than a minute ago",
-    createdBy: "Demo User",
-    modifiedBy: "Demo User",
-    isEncrypted: true,
-    checksum: "ceb292e58d800fc8056a3ae8ab929fb9e143b6a3e916a54661ef9e8e8d647f53"
-  };
-};
+// Export helper function to get a file by ID
+export function getFileById(id: string) {
+  return mockFiles.find(file => file.id === id) || null;
+}

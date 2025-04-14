@@ -1,11 +1,12 @@
 
 import { useState } from "react";
-import { Star } from "lucide-react";
+import { Star, Download } from "lucide-react";
 import { Link } from "react-router-dom";
 import { FileIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { downloadFile } from "@/utils/encryption";
 
 export interface FileInfo {
   id: string;
@@ -16,6 +17,8 @@ export interface FileInfo {
   timestamp: string;
   isFavorite?: boolean;
   isShared?: boolean;
+  isEncrypted?: boolean;
+  type?: string;
 }
 
 interface FileCardProps {
@@ -40,6 +43,39 @@ export function FileCard({ file, onToggleFavorite, className }: FileCardProps) {
     });
   };
   
+  const handleDownload = () => {
+    // Try to retrieve file from localStorage
+    const storedFile = localStorage.getItem(`file_${file.id}`);
+    if (storedFile) {
+      // Convert data URL to file object
+      const contentType = file.type || 'application/octet-stream';
+      const byteString = atob(storedFile.split(',')[1]);
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      
+      const blob = new Blob([ab], { type: contentType });
+      const fileObj = new File([blob], file.name, { type: contentType });
+      
+      // Download the file
+      downloadFile(fileObj);
+      
+      toast({
+        title: "Download started",
+        description: `${file.name} is being downloaded`,
+      });
+    } else {
+      toast({
+        title: "Download failed",
+        description: "Could not download the file",
+        variant: "destructive",
+      });
+    }
+  };
+  
   return (
     <div 
       className={cn("file-card flex flex-col p-4 bg-card border border-border/40 rounded-lg", className)}
@@ -57,27 +93,49 @@ export function FileCard({ file, onToggleFavorite, className }: FileCardProps) {
           </div>
         </Link>
         
-        {(file.isFavorite || isHovered) && (
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-8 w-8 rounded-full" 
-            onClick={handleToggleFavorite}
-          >
-            <Star 
-              className={cn(
-                "h-4 w-4", 
-                file.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
-              )} 
-            />
-          </Button>
-        )}
+        <div className="flex">
+          {isHovered && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full" 
+              onClick={handleDownload}
+              title="Download file"
+            >
+              <Download className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
+          
+          {(file.isFavorite || isHovered) && (
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full" 
+              onClick={handleToggleFavorite}
+              title={file.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            >
+              <Star 
+                className={cn(
+                  "h-4 w-4", 
+                  file.isFavorite ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"
+                )} 
+              />
+            </Button>
+          )}
+        </div>
       </div>
       
       <div className="mt-auto pt-2 flex flex-wrap gap-1">
         {file.tags.map((tag) => (
           <span key={tag} className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-secondary/40 text-foreground">{tag}</span>
         ))}
+        
+        {file.isEncrypted && (
+          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-primary/20 text-primary">
+            <Lock className="h-3 w-3 mr-1" />
+            Encrypted
+          </span>
+        )}
       </div>
       
       <div className="flex justify-between items-center mt-3 pt-2 border-t border-border/40">
