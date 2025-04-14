@@ -1,6 +1,5 @@
-
 import { useState, useRef, useEffect } from "react";
-import { X, Upload, File, Lock, Key } from "lucide-react";
+import { X, Upload, File, Key, Lock } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -38,6 +37,11 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     iv: string;
     checksum: string;
   } | null>(null);
+  const [fileDetails, setFileDetails] = useState<{
+    type: string;
+    size: string;
+    lastModified: string;
+  } | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -50,6 +54,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       setEncryptionData(null);
       setEncrypt(false);
       setIsEncrypting(false);
+      setFileDetails(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -58,18 +63,41 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
       setEncryptedFile(null);
       setEncryptionData(null);
+      
+      // Set file details
+      setFileDetails({
+        type: file.type || 'Unknown',
+        size: formatFileSize(file.size),
+        lastModified: new Date(file.lastModified).toLocaleString()
+      });
     }
+  };
+  
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes';
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
   };
   
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSelectedFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      setSelectedFile(file);
       setEncryptedFile(null);
       setEncryptionData(null);
+      
+      // Set file details
+      setFileDetails({
+        type: file.type || 'Unknown',
+        size: formatFileSize(file.size),
+        lastModified: new Date(file.lastModified).toLocaleString()
+      });
     }
   };
   
@@ -175,7 +203,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
             <div 
               className="border-2 border-dashed border-border/60 rounded-lg p-8 text-center flex flex-col items-center justify-center gap-4"
               onDrop={handleDrop}
-              onDragOver={handleDragOver}
+              onDragOver={(e) => e.preventDefault()}
             >
               <div className="bg-secondary rounded-full p-4">
                 <Upload className="h-6 w-6 text-primary" />
@@ -207,14 +235,47 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                     <div>
                       <p className="font-medium">{selectedFile.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(selectedFile.size / 1024).toFixed(2)} KB
+                        {fileDetails?.size}
                       </p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={handleRemoveFile} className="h-8 w-8">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => {
+                      setSelectedFile(null);
+                      setEncryptedFile(null);
+                      setEncryptionData(null);
+                      setEncrypt(false);
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }} 
+                    className="h-8 w-8"
+                  >
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+                
+                {fileDetails && (
+                  <div className="mt-4 pt-4 border-t border-border/40">
+                    <h4 className="text-sm font-medium mb-2">File Details</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Type:</span>
+                        <span>{fileDetails.type}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Size:</span>
+                        <span>{fileDetails.size}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last Modified:</span>
+                        <span>{fileDetails.lastModified}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="mt-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -230,12 +291,8 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                 
                 {encrypt && encryptionData && (
                   <div className="mt-4 pt-4 border-t border-border/40">
-                    <h4 className="text-sm font-medium mb-2">Encryption Details</h4>
+                    <h4 className="text-sm font-medium mb-2">Encryption Key</h4>
                     <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Algorithm:</span>
-                        <span className="font-mono">{encryptionData.algorithm}</span>
-                      </div>
                       <div>
                         <div className="flex justify-between mb-1">
                           <span className="text-muted-foreground">Encryption Key:</span>
@@ -250,32 +307,14 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                         </div>
                         <div className="bg-secondary/40 p-1 rounded overflow-hidden">
                           <p className="text-xs font-mono text-ellipsis overflow-hidden">
-                            {encryptionData.encryptionKey.substring(0, 20)}...
-                          </p>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex justify-between mb-1">
-                          <span className="text-muted-foreground">IV:</span>
-                          <Button variant="ghost" size="sm" className="h-5 py-0 px-2 text-xs"
-                            onClick={() => {
-                              navigator.clipboard.writeText(encryptionData.iv);
-                              toast({ description: "IV copied to clipboard" });
-                            }}
-                          >
-                            Copy
-                          </Button>
-                        </div>
-                        <div className="bg-secondary/40 p-1 rounded overflow-hidden">
-                          <p className="text-xs font-mono text-ellipsis overflow-hidden">
-                            {encryptionData.iv.substring(0, 20)}...
+                            {encryptionData.encryptionKey}
                           </p>
                         </div>
                       </div>
                       <div className="pt-2">
                         <p className="text-xs text-warning-foreground">
                           <Key className="h-3 w-3 inline-block mr-1" />
-                          Save these details to decrypt your file later
+                          Save this key to decrypt your file later
                         </p>
                       </div>
                     </div>
@@ -288,13 +327,13 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
           )}
           
           <div className="flex justify-end gap-3 mt-6">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} className="w-24">
               Cancel
             </Button>
             <Button 
               disabled={!selectedFile || (encrypt && isEncrypting)} 
               onClick={handleUpload}
-              className={cn(!selectedFile && "opacity-50 cursor-not-allowed")}
+              className={cn(!selectedFile && "opacity-50 cursor-not-allowed", "w-32")}
             >
               {isEncrypting ? (
                 <>
@@ -302,7 +341,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                   Encrypting...
                 </>
               ) : (
-                <>Upload{encrypt ? " Encrypted File" : ""}</>
+                <>Upload{encrypt ? " Encrypted" : ""}</>
               )}
             </Button>
           </div>

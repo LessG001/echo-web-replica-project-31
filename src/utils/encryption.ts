@@ -33,11 +33,17 @@ export const encryptFile = async (file: File): Promise<{
   // Export key for storage
   const exportedKey = await exportKey(key);
   
+  const keyBase64 = arrayBufferToBase64(exportedKey);
+  const ivBase64 = arrayBufferToBase64(iv);
+  
+  // Combine the key and IV into a single string with a separator
+  const combinedKey = `${keyBase64}.${ivBase64}`;
+  
   return {
     encryptedFile,
     algorithm: 'AES-GCM',
-    encryptionKey: arrayBufferToBase64(exportedKey),
-    iv: arrayBufferToBase64(iv)
+    encryptionKey: combinedKey,
+    iv: ivBase64
   };
 };
 

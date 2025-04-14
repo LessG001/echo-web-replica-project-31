@@ -18,23 +18,50 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
   const [encryptedFile, setEncryptedFile] = useState<File | null>(null);
   const [decryptedFile, setDecryptedFile] = useState<File | null>(null);
   const [encryptionKey, setEncryptionKey] = useState("");
-  const [iv, setIv] = useState("");
+  const [fileDetails, setFileDetails] = useState<{
+    type: string;
+    size: string;
+    lastModified: string;
+  } | null>(null);
   const [isDecrypting, setIsDecrypting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes';
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  };
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setEncryptedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setEncryptedFile(file);
       setDecryptedFile(null);
+      
+      // Set file details
+      setFileDetails({
+        type: file.type || 'Unknown',
+        size: formatFileSize(file.size),
+        lastModified: new Date(file.lastModified).toLocaleString()
+      });
     }
   };
   
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setEncryptedFile(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      setEncryptedFile(file);
       setDecryptedFile(null);
+      
+      // Set file details
+      setFileDetails({
+        type: file.type || 'Unknown',
+        size: formatFileSize(file.size),
+        lastModified: new Date(file.lastModified).toLocaleString()
+      });
     }
   };
   
@@ -51,16 +78,17 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
   const handleRemoveFile = () => {
     setEncryptedFile(null);
     setDecryptedFile(null);
+    setFileDetails(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
   
   const handleDecrypt = async () => {
-    if (!encryptedFile || !encryptionKey || !iv) {
+    if (!encryptedFile || !encryptionKey) {
       toast({
         title: "Missing information",
-        description: "Please provide the encrypted file, encryption key, and IV",
+        description: "Please provide the encrypted file and encryption key",
         variant: "destructive",
       });
       return;
@@ -69,7 +97,27 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
     setIsDecrypting(true);
     
     try {
-      const decrypted = await decryptFile(encryptedFile, encryptionKey, iv);
+      // For simplicity, extract IV from the key (last part)
+      const parts = encryptionKey.split('.');
+      let iv = '';
+      let actualKey = encryptionKey;
+      
+      if (parts.length > 1) {
+        // Last part is the IV
+        iv = parts[parts.length - 1];
+        // The rest is the key
+        actualKey = parts.slice(0, -1).join('.');
+      } else {
+        toast({
+          title: "Invalid key format",
+          description: "The encryption key doesn't contain the initialization vector",
+          variant: "destructive",
+        });
+        setIsDecrypting(false);
+        return;
+      }
+      
+      const decrypted = await decryptFile(encryptedFile, actualKey, iv);
       setDecryptedFile(decrypted);
       
       toast({
@@ -80,7 +128,7 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
       console.error("Decryption failed:", error);
       toast({
         title: "Decryption failed",
-        description: "Invalid encryption key or IV, or the file is not encrypted",
+        description: "Invalid encryption key or the file is not encrypted",
         variant: "destructive",
       });
     } finally {
@@ -102,7 +150,7 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
     setEncryptedFile(null);
     setDecryptedFile(null);
     setEncryptionKey("");
-    setIv("");
+    setFileDetails(null);
     onClose();
   };
   
@@ -154,7 +202,7 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
                     <div>
                       <p className="font-medium">{encryptedFile.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(encryptedFile.size / 1024).toFixed(2)} KB
+                        {fileDetails?.size}
                       </p>
                     </div>
                   </div>
@@ -162,6 +210,26 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
                     <X className="h-4 w-4" />
                   </Button>
                 </div>
+                
+                {fileDetails && (
+                  <div className="mt-4 pt-4 border-t border-border/40">
+                    <h4 className="text-sm font-medium mb-2">File Details</h4>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Type:</span>
+                        <span>{fileDetails.type}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Size:</span>
+                        <span>{fileDetails.size}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Last Modified:</span>
+                        <span>{fileDetails.lastModified}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               
               <div className="space-y-4">
@@ -174,22 +242,15 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
                       onChange={(e) => setEncryptionKey(e.target.value)}
                       placeholder="Paste the encryption key here"
                     />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="iv">Initialization Vector (IV)</Label>
-                    <Input
-                      id="iv"
-                      value={iv}
-                      onChange={(e) => setIv(e.target.value)}
-                      placeholder="Paste the IV here"
-                    />
+                    <p className="text-xs text-muted-foreground">
+                      Paste the complete encryption key you received when encrypting the file
+                    </p>
                   </div>
                 </div>
                 
                 <Button 
                   onClick={handleDecrypt} 
-                  disabled={!encryptedFile || !encryptionKey || !iv || isDecrypting}
+                  disabled={!encryptedFile || !encryptionKey || isDecrypting}
                   className="w-full"
                 >
                   {isDecrypting ? (
@@ -224,7 +285,7 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
                   />
                   
                   <div className="flex justify-end mt-4">
-                    <Button onClick={handleDownload}>
+                    <Button onClick={handleDownload} className="w-64">
                       <Download className="h-4 w-4 mr-2" />
                       Download Decrypted File
                     </Button>
@@ -235,7 +296,7 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
           )}
           
           <div className="flex justify-end gap-3 mt-6">
-            <Button variant="outline" onClick={handleClose}>
+            <Button variant="outline" onClick={handleClose} className="w-24">
               Cancel
             </Button>
           </div>
