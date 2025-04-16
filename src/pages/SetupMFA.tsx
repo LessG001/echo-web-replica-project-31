@@ -19,6 +19,7 @@ export default function SetupMFAPage() {
   const [verificationCode, setVerificationCode] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     // Redirect if not authenticated
@@ -34,15 +35,27 @@ export default function SetupMFAPage() {
       return;
     }
     
-    // Generate MFA secret
-    const newSecret = generateMFASecret();
-    setSecret(newSecret);
-    
-    // Generate QR code URL
-    const qrUrl = generateMFAQRCode(newSecret, userData.email);
-    setQrCodeUrl(qrUrl);
-    
     setUser(userData);
+    
+    // Generate MFA secret and QR code
+    const setupMFA = async () => {
+      try {
+        // Generate MFA secret
+        const newSecret = generateMFASecret();
+        setSecret(newSecret);
+        
+        // Generate QR code URL
+        const qrUrl = await generateMFAQRCode(newSecret, userData.email);
+        setQrCodeUrl(qrUrl);
+      } catch (error) {
+        console.error("Error setting up MFA:", error);
+        setError("Failed to generate QR code. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    setupMFA();
   }, [navigate]);
   
   const handleVerify = () => {
@@ -85,6 +98,16 @@ export default function SetupMFAPage() {
     }
   };
   
+  if (loading) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="flex justify-center items-center h-[60vh]">
+          <p>Setting up MFA...</p>
+        </div>
+      </div>
+    );
+  }
+  
   if (!user) {
     return (
       <div className="flex-1 p-6">
@@ -109,7 +132,7 @@ export default function SetupMFAPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
-              Setup MFA
+              Setup Google Authenticator
             </CardTitle>
             <CardDescription>
               Follow these steps to enable two-factor authentication
@@ -125,10 +148,18 @@ export default function SetupMFAPage() {
                   </p>
                   
                   <div className="flex justify-center p-4 bg-white rounded-lg">
-                    <div className="p-6 border border-dashed border-gray-300 rounded-lg">
-                      <QrCode className="h-32 w-32 text-black" />
-                      <p className="text-xs text-center text-black mt-2">QR Code Placeholder</p>
-                    </div>
+                    {qrCodeUrl ? (
+                      <img
+                        src={qrCodeUrl}
+                        alt="QR code for Google Authenticator"
+                        className="w-48 h-48"
+                      />
+                    ) : (
+                      <div className="p-6 border border-dashed border-gray-300 rounded-lg">
+                        <QrCode className="h-32 w-32 text-black" />
+                        <p className="text-xs text-center text-black mt-2">Loading QR Code...</p>
+                      </div>
+                    )}
                   </div>
                   
                   <div className="pt-2">
@@ -136,7 +167,7 @@ export default function SetupMFAPage() {
                       If you can't scan the QR code, enter this code manually in your app:
                     </p>
                     <p className="font-mono text-sm bg-muted p-2 rounded mt-1 select-all">
-                      {secret.substring(0, 4)}-{secret.substring(4, 8)}-{secret.substring(8, 12)}-{secret.substring(12, 16)}
+                      {secret}
                     </p>
                   </div>
                 </div>

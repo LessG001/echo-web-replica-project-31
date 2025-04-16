@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { generateFilePreview } from "@/utils/encryption";
 
 interface FilePreviewProps {
   file: any;
@@ -43,8 +44,18 @@ export function FilePreview({
           return;
         }
         
-        // For demo, just create a basic preview
-        setPreviewUrl("#");
+        // Generate actual file preview
+        if (file instanceof File) {
+          // For real files
+          const preview = await generateFilePreview(file);
+          setPreviewUrl(preview);
+        } else if (file.previewUrl) {
+          // For FileInfo objects that already have a preview URL
+          setPreviewUrl(file.previewUrl);
+        } else {
+          // Default placeholder
+          setPreviewUrl("#");
+        }
       } catch (err) {
         console.error("Failed to generate preview:", err);
         setError(true);
@@ -157,6 +168,35 @@ export function FilePreview({
           <p className="text-sm text-muted-foreground">This file type cannot be previewed</p>
         </div>
       );
+    }
+    
+    // Attempt to render preview based on content type
+    if (previewUrl !== "#") {
+      if (file.type?.startsWith('image/') || (typeof file === 'object' && file.extension?.match(/jpe?g|png|gif|bmp|webp/i))) {
+        return (
+          <div className="flex items-center justify-center h-full p-2">
+            <img src={previewUrl} alt={file.name} className="max-w-full max-h-64 object-contain" />
+          </div>
+        );
+      }
+      
+      if (file.type === 'application/pdf' || (typeof file === 'object' && file.extension === 'pdf')) {
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-2">
+            <iframe src={previewUrl} className="w-full h-64 border-none" title={file.name}></iframe>
+          </div>
+        );
+      }
+      
+      if (file.type?.startsWith('text/') || (typeof file === 'object' && file.extension?.match(/txt|md|css|html|js|json/i))) {
+        return (
+          <div className="flex flex-col items-center justify-center h-full p-2">
+            <div className="bg-secondary/30 p-4 rounded w-full h-64 overflow-auto">
+              <pre className="text-xs whitespace-pre-wrap">{previewUrl}</pre>
+            </div>
+          </div>
+        );
+      }
     }
     
     // Default preview

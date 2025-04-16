@@ -48,10 +48,8 @@ export function Login() {
   const [error, setError] = useState("");
   
   useEffect(() => {
-    // Initialize default user for demo
     initializeDefaultUser();
     
-    // Redirect if already authenticated
     if (isAuthenticated()) {
       navigate("/dashboard");
     }
@@ -76,13 +74,11 @@ export function Login() {
         return;
       }
       
-      // If MFA is required
       if (result.requireMFA && result.userId) {
         setUserId(result.userId);
         setShowMfaForm(true);
         toast.info("Please enter the verification code from your authenticator app");
       } else {
-        // Successful login without MFA
         toast.success("Login successful");
         navigate("/dashboard");
       }
@@ -113,7 +109,6 @@ export function Login() {
         return;
       }
       
-      // Successful MFA verification
       toast.success("Login successful");
       navigate("/dashboard");
     } catch (err) {
@@ -251,7 +246,6 @@ export function Register() {
   const [mfaCode, setMfaCode] = useState("");
   
   useEffect(() => {
-    // Check password strength
     if (password) {
       const strength = checkPasswordStrength(password);
       setPasswordStrength(strength);
@@ -261,7 +255,6 @@ export function Register() {
   }, [password]);
   
   useEffect(() => {
-    // Redirect if already authenticated
     if (isAuthenticated()) {
       navigate("/dashboard");
     }
@@ -271,7 +264,6 @@ export function Register() {
     e.preventDefault();
     setError("");
     
-    // Validate inputs
     if (!email || !password || !confirmPassword) {
       setError("All fields are required");
       return;
@@ -302,15 +294,12 @@ export function Register() {
         return;
       }
       
-      // Generate MFA secret for 2FA setup
       const secret = generateMFASecret();
       setMfaSecret(secret);
       
-      // Generate QR code for scanning
       const qrCode = generateMFAQRCode(secret, email);
       setMfaQrCode(qrCode);
       
-      // Go to MFA setup step
       setCurrentStep(2);
       
       toast.success("Account created successfully");
@@ -334,7 +323,6 @@ export function Register() {
     setLoading(true);
     
     try {
-      // Verify the TOTP code
       const isValid = verifyTOTP(mfaSecret, mfaCode);
       
       if (!isValid) {
@@ -342,7 +330,6 @@ export function Register() {
         return;
       }
       
-      // Set up MFA for the user
       const result = setupMFA(email, mfaSecret);
       
       if (!result.success) {
@@ -350,7 +337,6 @@ export function Register() {
         return;
       }
       
-      // Go to success step
       setCurrentStep(3);
       
       logSecurity(LogLevel.INFO, `MFA set up for user: ${email}`);
@@ -478,7 +464,6 @@ export function Register() {
                 </p>
                 
                 <div className="my-4 p-4 bg-white flex justify-center rounded-lg">
-                  {/* In a real app, render a QR code here */}
                   <div className="p-8 border border-dashed border-gray-300 text-center">
                     <p className="text-black">QR Code would be displayed here</p>
                     <p className="text-xs text-gray-500 mt-2">

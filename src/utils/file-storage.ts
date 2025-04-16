@@ -1,6 +1,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import { FileInfo } from '@/types/file';
+import { downloadFile as downloadFileUtil } from '@/utils/encryption';
 
 // Helper function to generate a unique file ID
 export const generateFileId = (): string => {
@@ -58,6 +59,50 @@ export const addFile = (file: FileInfo): FileInfo => {
   return file;
 };
 
+// Save actual file content to localStorage
+export const saveFileContent = (fileId: string, content: Blob | File): void => {
+  // Convert the file to a data URL
+  const reader = new FileReader();
+  reader.onload = () => {
+    localStorage.setItem(`file_content_${fileId}`, reader.result as string);
+    console.log(`Saved file content for ${fileId}`);
+  };
+  reader.readAsDataURL(content);
+};
+
+// Get file content from localStorage
+export const getFileContent = (fileId: string): Promise<File | null> => {
+  return new Promise((resolve) => {
+    const dataUrl = localStorage.getItem(`file_content_${fileId}`);
+    if (!dataUrl) {
+      console.error(`No content found for file ${fileId}`);
+      resolve(null);
+      return;
+    }
+    
+    const fileInfo = getFileById(fileId);
+    if (!fileInfo) {
+      console.error(`No file info found for ${fileId}`);
+      resolve(null);
+      return;
+    }
+    
+    // Convert data URL to Blob
+    const byteString = atob(dataUrl.split(',')[1]);
+    const mimeType = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+    const ab = new ArrayBuffer(byteString.length);
+    const ia = new Uint8Array(ab);
+    
+    for (let i = 0; i < byteString.length; i++) {
+      ia[i] = byteString.charCodeAt(i);
+    }
+    
+    const blob = new Blob([ab], { type: mimeType });
+    const file = new File([blob], fileInfo.name, { type: mimeType });
+    resolve(file);
+  });
+};
+
 // Get a file by ID
 export const getFileById = (id: string): FileInfo | null => {
   const files = getFiles();
@@ -86,11 +131,32 @@ export const deleteFile = (id: string): boolean => {
   if (newFiles.length !== files.length) {
     localStorage.setItem('secure_vault_files', JSON.stringify(newFiles));
     // Also delete the actual file content
-    localStorage.removeItem(`file_${id}`);
+    localStorage.removeItem(`file_content_${id}`);
     return true;
   }
   
   return false;
+};
+
+// Download a file from FileInfo
+export const downloadFile = async (fileId: string): Promise<void> => {
+  try {
+    const fileInfo = getFileById(fileId);
+    if (!fileInfo) {
+      throw new Error(`File with ID ${fileId} not found`);
+    }
+    
+    const fileContent = await getFileContent(fileId);
+    if (!fileContent) {
+      throw new Error(`Content for file ${fileId} not found`);
+    }
+    
+    // Use the downloadFile utility from encryption.ts
+    downloadFileUtil(fileContent);
+  } catch (error) {
+    console.error('Error downloading file:', error);
+    throw error;
+  }
 };
 
 // Get favorite files
