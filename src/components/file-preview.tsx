@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { generateFilePreview } from "@/utils/encryption";
+import { FileInfo } from "@/types/file";
 
 interface FilePreviewProps {
-  file: any;
+  file: FileInfo | File;
   encryptedFile?: File;
   onDownload?: () => void;
   requiresDecryption?: boolean;
@@ -49,9 +50,9 @@ export function FilePreview({
           // For real files
           const preview = await generateFilePreview(file);
           setPreviewUrl(preview);
-        } else if (file.previewUrl) {
+        } else if ((file as FileInfo).previewUrl) {
           // For FileInfo objects that already have a preview URL
-          setPreviewUrl(file.previewUrl);
+          setPreviewUrl((file as FileInfo).previewUrl);
         } else {
           // Default placeholder
           setPreviewUrl("#");
@@ -80,7 +81,7 @@ export function FilePreview({
       if (onDownload) {
         onDownload();
       } else {
-        toast.success(`${file.name} is being downloaded`);
+        toast.success(`${file instanceof File ? file.name : (file as FileInfo).name} is being downloaded`);
       }
     } else if (onDownload) {
       onDownload();
@@ -170,25 +171,32 @@ export function FilePreview({
       );
     }
     
+    // Get file type and name safely
+    const fileType = file instanceof File ? file.type : (file as FileInfo).type || '';
+    const fileName = file instanceof File ? file.name : (file as FileInfo).name;
+    const fileExt = file instanceof File 
+      ? file.name.split('.').pop()?.toLowerCase() 
+      : (file as FileInfo).extension.toLowerCase();
+    
     // Attempt to render preview based on content type
     if (previewUrl !== "#") {
-      if (file.type?.startsWith('image/') || (typeof file === 'object' && file.extension?.match(/jpe?g|png|gif|bmp|webp/i))) {
+      if (fileType?.startsWith('image/') || fileExt?.match(/jpe?g|png|gif|bmp|webp/i)) {
         return (
           <div className="flex items-center justify-center h-full p-2">
-            <img src={previewUrl} alt={file.name} className="max-w-full max-h-64 object-contain" />
+            <img src={previewUrl} alt={fileName} className="max-w-full max-h-64 object-contain" />
           </div>
         );
       }
       
-      if (file.type === 'application/pdf' || (typeof file === 'object' && file.extension === 'pdf')) {
+      if (fileType === 'application/pdf' || fileExt === 'pdf') {
         return (
           <div className="flex flex-col items-center justify-center h-full p-2">
-            <iframe src={previewUrl} className="w-full h-64 border-none" title={file.name}></iframe>
+            <iframe src={previewUrl} className="w-full h-64 border-none" title={fileName}></iframe>
           </div>
         );
       }
       
-      if (file.type?.startsWith('text/') || (typeof file === 'object' && file.extension?.match(/txt|md|css|html|js|json/i))) {
+      if (fileType?.startsWith('text/') || fileExt?.match(/txt|md|css|html|js|json/i)) {
         return (
           <div className="flex flex-col items-center justify-center h-full p-2">
             <div className="bg-secondary/30 p-4 rounded w-full h-64 overflow-auto">
@@ -203,12 +211,20 @@ export function FilePreview({
     return (
       <div className="flex flex-col items-center justify-center h-full p-8">
         <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-        <p className="font-medium">{file.name}</p>
+        <p className="font-medium">{fileName}</p>
         <p className="text-sm text-muted-foreground">
-          {file.size}
+          {file instanceof File ? `${formatFileSize(file.size)}` : (file as FileInfo).size}
         </p>
       </div>
     );
+  };
+  
+  // Helper function to format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes';
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
   };
   
   return (
