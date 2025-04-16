@@ -1,4 +1,3 @@
-
 import {
   File,
   FileText,
@@ -23,6 +22,7 @@ import {
   X,
   ChevronLeft,
   ArrowRight,
+  User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -106,5 +106,6 @@ export const NavIcons = {
   Sort: ArrowUpDown,
   Close: X,
   Back: ChevronLeft,
-  ArrowRight: ArrowRight
+  ArrowRight: ArrowRight,
+  Profile: User
 };
