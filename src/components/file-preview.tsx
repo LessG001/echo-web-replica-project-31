@@ -25,6 +25,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
         
         const url = await generateFilePreview(file);
         setPreviewUrl(url);
+        console.log("Preview URL generated:", url);
       } catch (err) {
         console.error("Failed to generate preview:", err);
         setError(true);
@@ -37,7 +38,9 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
     
     // Cleanup
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
     };
   }, [file]);
   
@@ -92,11 +95,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
       return (
         <div className="w-full h-64 border border-border/40 rounded-md bg-secondary/20 p-4 overflow-auto">
           <pre className="text-xs font-mono">
-            <iframe 
-              src={previewUrl} 
-              className="w-full h-full border-0" 
-              title={file.name}
-            />
+            <code>{previewUrl}</code>
           </pre>
         </div>
       );
@@ -127,7 +126,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
           ) : (
             <>
               {previewUrl && (
-                <Button variant="outline" size="sm" onClick={() => window.open(previewUrl || '', '_blank')}>
+                <Button variant="outline" size="sm" onClick={() => window.open(previewUrl, '_blank')}>
                   <Image className="h-4 w-4 mr-1" />
                   Open
                 </Button>
