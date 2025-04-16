@@ -56,11 +56,11 @@ export const logError = (
 
 // For security-specific events, use this function
 export const logSecurity = (
-  category: LogCategory,
+  level: LogLevel,
   message: string,
   metadata?: object
 ): void => {
-  createLogEntry(LogLevel.INFO, category, message, metadata);
+  createLogEntry(level, LogCategory.SECURITY, message, metadata);
 };
 
 // Create a log entry and store it in localStorage

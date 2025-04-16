@@ -66,7 +66,8 @@ export default function AuditLogPage() {
     // Apply user filter
     if (filterUser) {
       filtered = filtered.filter(log => 
-        log.user?.toLowerCase().includes(filterUser.toLowerCase())
+        (log.userEmail?.toLowerCase().includes(filterUser.toLowerCase())) ||
+        (log.userId?.toLowerCase().includes(filterUser.toLowerCase()))
       );
     }
     
@@ -108,8 +109,6 @@ export default function AuditLogPage() {
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
       case LogLevel.ERROR:
         return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300";
-      case LogLevel.SECURITY:
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300";
     }
@@ -136,7 +135,6 @@ export default function AuditLogPage() {
                 <SelectItem value={LogLevel.INFO}>Info</SelectItem>
                 <SelectItem value={LogLevel.WARNING}>Warning</SelectItem>
                 <SelectItem value={LogLevel.ERROR}>Error</SelectItem>
-                <SelectItem value={LogLevel.SECURITY}>Security</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -234,8 +232,8 @@ export default function AuditLogPage() {
                   </TableCell>
                   <TableCell>{log.category}</TableCell>
                   <TableCell className="text-sm">
-                    {log.user ? (
-                      <span className="truncate max-w-[100px] inline-block">{log.user}</span>
+                    {log.userEmail ? (
+                      <span className="truncate max-w-[100px] inline-block">{log.userEmail}</span>
                     ) : (
                       <span className="text-muted-foreground">System</span>
                     )}

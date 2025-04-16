@@ -42,10 +42,10 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider defaultTheme="dark">
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
+        <BrowserRouter>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
             <Routes>
               {/* Public routes */}
               <Route element={<MainLayout />}>
@@ -75,8 +75,8 @@ const App = () => {
               
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
+          </TooltipProvider>
+        </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
   );
