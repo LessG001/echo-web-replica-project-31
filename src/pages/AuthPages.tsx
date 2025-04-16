@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -17,7 +16,7 @@ import {
   setupMFA
 } from "@/utils/auth";
 import { generateMFASecret, generateMFAQRCode, verifyTOTP } from "@/utils/mfa";
-import { logSecurity, LogCategory } from "@/utils/audit-logger";
+import { logSecurity, LogCategory, LogLevel } from "@/utils/audit-logger";
 import { Key, AlertCircle, CheckCircle2 } from "lucide-react";
 
 const checkPasswordStrength = (password: string): number => {
@@ -354,7 +353,7 @@ export function Register() {
       // Go to success step
       setCurrentStep(3);
       
-      logSecurity(LogCategory.AUTH, `MFA set up for user: ${email}`);
+      logSecurity(LogLevel.INFO, `MFA set up for user: ${email}`);
     } catch (err) {
       console.error("MFA setup error:", err);
       setError("Failed to set up MFA. Please try again.");

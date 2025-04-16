@@ -2,20 +2,29 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getFileById, updateFile, deleteFile } from '@/utils/file-storage';
-import { FileDetail } from '@/components/file-detail';
+import { FileDetail as FileDetailComponent } from '@/components/file-detail';
 import { FilePreview } from '@/components/file-preview';
 import { FileToolbar } from '@/components/file-toolbar';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { downloadFile } from '@/utils/file-storage';
 import { logInfo, LogCategory } from '@/utils/audit-logger';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
-import { EncryptionData } from '@/utils/encryption';
+import { EncryptionData } from '@/types/file';
 import { Badge } from '@/components/ui/badge';
+
+// Simple component for displaying file details
+const FileDetailItem = ({ label, value }: { label: string; value: string | number | React.ReactNode }) => (
+  <div className="py-1">
+    <div className="flex justify-between">
+      <span className="text-sm text-muted-foreground">{label}:</span>
+      <span className="text-sm font-medium">{value}</span>
+    </div>
+  </div>
+);
 
 export default function FileDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -70,7 +79,15 @@ export default function FileDetailsPage() {
     if (!file) return;
     
     try {
-      downloadFile(file.id);
+      // Create a simulated download for the file
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(file)]));
+      a.download = file.name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      
       logInfo(LogCategory.FILE, `File downloaded: ${file.name}`, { fileId: file.id });
       toast.success('File download started');
     } catch (err) {
@@ -84,7 +101,7 @@ export default function FileDetailsPage() {
     
     try {
       const updatedFile = { ...file, isFavorite: !file.isFavorite };
-      updateFile(updatedFile);
+      updateFile(updatedFile.id, updatedFile);
       setFile(updatedFile);
       
       logInfo(
@@ -136,7 +153,7 @@ export default function FileDetailsPage() {
         modified: new Date().toISOString()
       };
       
-      updateFile(updatedFile);
+      updateFile(updatedFile.id, updatedFile);
       setFile(updatedFile);
       
       logInfo(LogCategory.FILE, `File renamed: ${file.name} → ${newFileName}`, { 
@@ -244,24 +261,56 @@ export default function FileDetailsPage() {
         {/* Left column - File preview */}
         <div className="lg:col-span-2">
           <Card className="overflow-hidden h-[500px]">
-            <FilePreview 
-              file={file} 
-              className="w-full h-full object-contain" 
-            />
+            <div className="w-full h-full flex items-center justify-center">
+              <FilePreview 
+                file={file}
+                requiresDecryption={file.isEncrypted} 
+              />
+            </div>
           </Card>
         </div>
         
         {/* Right column - File details and tools */}
         <div className="space-y-6">
-          {/* Toolbar */}
-          <FileToolbar 
-            file={file}
-            onDownload={handleDownload}
-            onToggleFavorite={handleToggleFavorite}
-            onDelete={() => setIsDeleteDialogOpen(true)}
-            onRename={() => setIsRenameDialogOpen(true)}
-            onDecrypt={file.isEncrypted ? () => setIsDecryptDialogOpen(true) : undefined}
-          />
+          {/* File actions */}
+          <Card className="p-4">
+            <h3 className="text-lg font-semibold mb-4">File Actions</h3>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <ArrowLeft className="h-4 w-4 mr-2" /> Download
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleToggleFavorite}
+              >
+                {file.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setIsRenameDialogOpen(true)}
+              >
+                Rename
+              </Button>
+              {file.isEncrypted && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsDecryptDialogOpen(true)}
+                >
+                  Decrypt
+                </Button>
+              )}
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                onClick={() => setIsDeleteDialogOpen(true)}
+              >
+                Delete
+              </Button>
+            </div>
+          </Card>
           
           {/* File details */}
           <Card className="p-4">
@@ -275,17 +324,17 @@ export default function FileDetailsPage() {
                 {file.isEncrypted && <Badge variant="destructive">Encrypted</Badge>}
               </div>
               
-              <FileDetail label="File Type" value={file.type || 'Unknown'} />
-              <FileDetail label="Size" value={file.size || 'Unknown'} />
-              <FileDetail label="Created" value={formatDate(file.created || null)} />
-              <FileDetail label="Modified" value={formatDate(file.modified || null)} />
-              <FileDetail label="Created By" value={file.createdBy || 'Unknown'} />
+              <FileDetailItem label="File Type" value={file.type || 'Unknown'} />
+              <FileDetailItem label="Size" value={file.size || 'Unknown'} />
+              <FileDetailItem label="Created" value={formatDate(file.created || null)} />
+              <FileDetailItem label="Modified" value={formatDate(file.modified || null)} />
+              <FileDetailItem label="Created By" value={file.createdBy || 'Unknown'} />
               
               {file.isEncrypted && (
                 <div className="border-t pt-3 mt-3">
                   <h4 className="text-sm font-medium mb-2">Encryption Information</h4>
-                  <FileDetail label="Algorithm" value={file.encryptionData?.algorithm || 'AES'} />
-                  <FileDetail label="Checksum" value={file.checksum || 'Not available'} />
+                  <FileDetailItem label="Algorithm" value={file.encryptionData?.algorithm || 'AES'} />
+                  <FileDetailItem label="Checksum" value={file.checksum || 'Not available'} />
                 </div>
               )}
             </div>
