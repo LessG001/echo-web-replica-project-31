@@ -1,4 +1,6 @@
+
 import { getCurrentUserEmail } from './auth';
+import * as fs from 'fs';
 
 export enum LogLevel {
   INFO = 'INFO',
@@ -23,20 +25,67 @@ interface LogEntry {
   details?: any;
 }
 
+// Define paths for data storage
+const DATA_DIR = './data';
+const LOGS_FILE_PATH = `${DATA_DIR}/auditLogs.json`;
+
 // In-memory log storage
 let auditLogs: LogEntry[] = [];
 
-// Load logs from localStorage
-const loadLogs = (): void => {
-  const storedLogs = localStorage.getItem('auditLogs');
-  if (storedLogs) {
-    auditLogs = JSON.parse(storedLogs);
+// Ensure data directory exists
+const ensureDataDirectoryExists = (): void => {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (error) {
+    console.error("Failed to create data directory:", error);
   }
 };
 
-// Save logs to localStorage
+// Load logs from storage
+const loadLogs = (): void => {
+  try {
+    ensureDataDirectoryExists();
+    
+    // Try filesystem first
+    if (fs.existsSync(LOGS_FILE_PATH)) {
+      const data = fs.readFileSync(LOGS_FILE_PATH, 'utf8');
+      auditLogs = JSON.parse(data);
+      return;
+    }
+  } catch (error) {
+    console.error("Failed to load audit logs from filesystem:", error);
+  }
+  
+  // Fallback to localStorage
+  try {
+    const storedLogs = localStorage.getItem('auditLogs');
+    if (storedLogs) {
+      auditLogs = JSON.parse(storedLogs);
+    }
+  } catch (error) {
+    console.error("Failed to load audit logs from localStorage:", error);
+  }
+};
+
+// Save logs to storage
 const saveLogs = (): void => {
-  localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
+  try {
+    ensureDataDirectoryExists();
+    
+    // Try filesystem first
+    fs.writeFileSync(LOGS_FILE_PATH, JSON.stringify(auditLogs, null, 2));
+  } catch (error) {
+    console.error("Failed to save audit logs to filesystem:", error);
+    
+    // Fallback to localStorage
+    try {
+      localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
+    } catch (storageError) {
+      console.error("Failed to save to localStorage:", storageError);
+    }
+  }
 };
 
 // Initialize by loading logs
@@ -98,6 +147,9 @@ export const getLogs = (
   endDate?: Date,
   limit: number = 100
 ): LogEntry[] => {
+  // Ensure we have the latest logs
+  loadLogs();
+  
   let filteredLogs = auditLogs;
   
   if (level) {

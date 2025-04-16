@@ -3,6 +3,8 @@ import { toast } from "sonner";
 import SHA256 from "crypto-js/sha256";
 import Base64 from "crypto-js/enc-base64";
 import { v4 as uuidv4 } from "uuid";
+import { logInfo, logSecurity, LogCategory } from './audit-logger';
+import * as fs from 'fs';
 
 // User interface
 export interface User {
@@ -15,21 +17,67 @@ export interface User {
   lastLogin?: string;
 }
 
+// Define paths for data storage
+const DATA_DIR = './data';
+const USERS_FILE_PATH = `${DATA_DIR}/users.json`;
+
 // In-memory user storage for demo purposes
-// In a real application, this would be replaced with a database
 let users: User[] = [];
 
-// Load users from localStorage on initialization
-const loadUsers = (): void => {
-  const storedUsers = localStorage.getItem('users');
-  if (storedUsers) {
-    users = JSON.parse(storedUsers);
+// Ensure data directory exists
+const ensureDataDirectoryExists = (): void => {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+  } catch (error) {
+    console.error("Failed to create data directory:", error);
   }
 };
 
-// Save users to localStorage
+// Load users from storage
+const loadUsers = (): void => {
+  try {
+    ensureDataDirectoryExists();
+    
+    // Try filesystem first
+    if (fs.existsSync(USERS_FILE_PATH)) {
+      const data = fs.readFileSync(USERS_FILE_PATH, 'utf8');
+      users = JSON.parse(data);
+      return;
+    }
+  } catch (error) {
+    console.error("Failed to load users from filesystem:", error);
+  }
+  
+  // Fallback to localStorage
+  try {
+    const storedUsers = localStorage.getItem('users');
+    if (storedUsers) {
+      users = JSON.parse(storedUsers);
+    }
+  } catch (error) {
+    console.error("Failed to load users from localStorage:", error);
+  }
+};
+
+// Save users to storage
 const saveUsers = (): void => {
-  localStorage.setItem('users', JSON.stringify(users));
+  try {
+    ensureDataDirectoryExists();
+    
+    // Try filesystem first
+    fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(users, null, 2));
+  } catch (error) {
+    console.error("Failed to save users to filesystem:", error);
+    
+    // Fallback to localStorage
+    try {
+      localStorage.setItem('users', JSON.stringify(users));
+    } catch (storageError) {
+      console.error("Failed to save to localStorage:", storageError);
+    }
+  }
 };
 
 // Initialize by loading users
@@ -47,29 +95,38 @@ let currentSession: Session | null = null;
 
 // Load session from localStorage
 const loadSession = (): void => {
-  const storedSession = localStorage.getItem('session');
-  if (storedSession) {
-    currentSession = JSON.parse(storedSession);
-    
-    // Check if session has expired
-    if (currentSession && currentSession.expiresAt < Date.now()) {
-      logout();
-      return;
+  try {
+    const storedSession = localStorage.getItem('session');
+    if (storedSession) {
+      currentSession = JSON.parse(storedSession);
+      
+      // Check if session has expired
+      if (currentSession && currentSession.expiresAt < Date.now()) {
+        logout();
+        return;
+      }
+      
+      // Update last activity
+      if (currentSession) {
+        updateLastActivity();
+      }
     }
-    
-    // Update last activity
-    if (currentSession) {
-      updateLastActivity();
-    }
+  } catch (error) {
+    console.error("Failed to load session:", error);
+    currentSession = null;
   }
 };
 
 // Save session to localStorage
 const saveSession = (): void => {
-  if (currentSession) {
-    localStorage.setItem('session', JSON.stringify(currentSession));
-  } else {
-    localStorage.removeItem('session');
+  try {
+    if (currentSession) {
+      localStorage.setItem('session', JSON.stringify(currentSession));
+    } else {
+      localStorage.removeItem('session');
+    }
+  } catch (error) {
+    console.error("Failed to save session:", error);
   }
 };
 
@@ -126,6 +183,8 @@ export const register = (email: string, password: string): { success: boolean; m
   users.push(newUser);
   saveUsers();
   
+  logSecurity(LogCategory.AUTH, "User registered", { email });
+  
   return { success: true, message: "Registration successful", userId };
 };
 
@@ -139,17 +198,20 @@ export const login = (email: string, password: string): {
   const user = users.find(u => u.email === email);
   
   if (!user) {
+    logSecurity(LogCategory.AUTH, "Failed login attempt - user not found", { email });
     return { success: false, message: "Invalid email or password" };
   }
   
   const passwordHash = hashPassword(password);
   
   if (user.passwordHash !== passwordHash) {
+    logSecurity(LogCategory.AUTH, "Failed login attempt - wrong password", { email });
     return { success: false, message: "Invalid email or password" };
   }
   
   // If MFA is enabled, require verification
   if (user.mfaEnabled) {
+    logInfo(LogCategory.AUTH, "MFA required for login", { email });
     return { 
       success: true, 
       message: "Please enter your MFA code", 
@@ -164,6 +226,8 @@ export const login = (email: string, password: string): {
   // Update last login
   user.lastLogin = new Date().toISOString();
   saveUsers();
+  
+  logSecurity(LogCategory.AUTH, "User logged in", { email });
   
   return { success: true, message: "Login successful" };
 };
@@ -185,6 +249,10 @@ const createSession = (userId: string, email: string): void => {
 
 // Log out the current user
 export const logout = (): void => {
+  if (currentSession) {
+    logSecurity(LogCategory.AUTH, "User logged out", { email: currentSession.email });
+  }
+  
   currentSession = null;
   saveSession();
 };
@@ -223,14 +291,24 @@ export const getCurrentUserEmail = (): string | null => {
 export const setupMFA = (userId: string, secret: string): boolean => {
   const userIndex = users.findIndex(u => u.id === userId);
   
-  if (userIndex === -1) return false;
+  if (userIndex === -1) {
+    logError(LogCategory.AUTH, "Failed to set up MFA - user not found", { userId });
+    return false;
+  }
   
   users[userIndex].mfaSecret = secret;
   users[userIndex].mfaEnabled = true;
   saveUsers();
   
+  logSecurity(LogCategory.AUTH, "MFA setup completed", { email: users[userIndex].email });
   return true;
 };
+
+// Log an error
+function logError(category: LogCategory, message: string, details?: any): void {
+  console.error(`[${category}] ${message}`, details);
+  // You might want to add actual error logging here
+}
 
 // Verify MFA token
 export const verifyMFA = (userId: string, token: string): boolean => {
@@ -239,14 +317,25 @@ export const verifyMFA = (userId: string, token: string): boolean => {
   
   // In a real app, this would verify the token against user's secret using TOTP algorithm
   // For demo purposes, we'll use a simple check (any 6-digit number)
-  return /^\d{6}$/.test(token);
+  const isValid = /^\d{6}$/.test(token);
+  
+  if (isValid) {
+    logInfo(LogCategory.AUTH, "MFA verification successful", { email: user.email });
+  } else {
+    logInfo(LogCategory.AUTH, "MFA verification failed", { email: user.email });
+  }
+  
+  return isValid;
 };
 
 // Complete MFA authentication and create session
 export const completeMFALogin = (userId: string): boolean => {
   const user = users.find(u => u.id === userId);
   
-  if (!user) return false;
+  if (!user) {
+    logError(LogCategory.AUTH, "Failed to complete MFA login - user not found", { userId });
+    return false;
+  }
   
   // Create session
   createSession(user.id, user.email);
@@ -254,6 +343,8 @@ export const completeMFALogin = (userId: string): boolean => {
   // Update last login
   user.lastLogin = new Date().toISOString();
   saveUsers();
+  
+  logSecurity(LogCategory.AUTH, "User logged in with MFA", { email: user.email });
   
   return true;
 };
@@ -269,11 +360,14 @@ export const changePassword = (userId: string, currentPassword: string, newPassw
   const currentPasswordHash = hashPassword(currentPassword);
   
   if (users[userIndex].passwordHash !== currentPasswordHash) {
+    logSecurity(LogCategory.AUTH, "Failed password change - incorrect current password", { email: users[userIndex].email });
     return { success: false, message: "Current password is incorrect" };
   }
   
   users[userIndex].passwordHash = hashPassword(newPassword);
   saveUsers();
+  
+  logSecurity(LogCategory.AUTH, "Password changed successfully", { email: users[userIndex].email });
   
   return { success: true, message: "Password changed successfully" };
 };
@@ -285,8 +379,15 @@ export const verifyCredentials = (email: string, password: string): boolean => {
   if (!user) return false;
   
   const passwordHash = hashPassword(password);
+  const isValid = user.passwordHash === passwordHash;
   
-  return user.passwordHash === passwordHash;
+  if (isValid) {
+    logInfo(LogCategory.AUTH, "Credentials verified", { email });
+  } else {
+    logSecurity(LogCategory.AUTH, "Failed credential verification", { email });
+  }
+  
+  return isValid;
 };
 
 // Initialize with a default admin user if no users exist
@@ -294,8 +395,12 @@ export const initializeDefaultUser = (): void => {
   if (users.length === 0) {
     register("admin@example.com", "admin123");
     console.log("Created default user: admin@example.com / admin123");
+    logInfo(LogCategory.SYSTEM, "Default admin user created", {});
   }
 };
+
+// Call initializeDefaultUser to ensure at least one user exists
+initializeDefaultUser();
 
 // Export types
 export type { Session };

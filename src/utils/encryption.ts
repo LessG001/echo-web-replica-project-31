@@ -29,7 +29,6 @@ export const encryptFile = async (file: File): Promise<EncryptionResult> => {
     // Convert file to array buffer
     const fileBuffer = await file.arrayBuffer();
     const fileData = new Uint8Array(fileBuffer);
-    const fileString = arrayBufferToString(fileData);
     
     // Generate random encryption key and IV
     const keyBytes = CryptoJS.lib.WordArray.random(32); // 256 bits for AES-256
@@ -39,18 +38,21 @@ export const encryptFile = async (file: File): Promise<EncryptionResult> => {
     const key = CryptoJS.enc.Base64.stringify(keyBytes);
     const iv = CryptoJS.enc.Base64.stringify(ivBytes);
     
+    // Convert the file data to a WordArray that CryptoJS can use
+    const wordArray = arrayBufferToWordArray(fileBuffer);
+    
     // Encrypt the file
-    const encrypted = CryptoJS.AES.encrypt(fileString, keyBytes, { 
+    const encrypted = CryptoJS.AES.encrypt(wordArray, keyBytes, { 
       iv: ivBytes, 
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7
     });
     
-    const encryptedString = encrypted.toString();
-    const encryptedData = stringToUint8Array(encryptedString);
+    // Convert the encrypted data to bytes
+    const encryptedBytes = base64ToArrayBuffer(encrypted.toString());
     
     // Create a new file with encrypted data
-    const encryptedFile = new File([encryptedData], `${file.name}.enc`, {
+    const encryptedFile = new File([encryptedBytes], `${file.name}.enc`, {
       type: 'application/octet-stream'
     });
     
@@ -59,6 +61,8 @@ export const encryptFile = async (file: File): Promise<EncryptionResult> => {
     
     // Combine key and IV with a separator for easier storage
     const combinedKey = `${key}.${iv}`;
+    
+    console.log("Encryption successful, key generated:", combinedKey);
     
     return {
       encryptedFile,
@@ -86,24 +90,29 @@ export const decryptFile = async (
   ivString: string
 ): Promise<File> => {
   try {
+    console.log("Starting decryption with key:", keyString, "and IV:", ivString);
+    
     // Convert file to array buffer
     const fileBuffer = await encryptedFile.arrayBuffer();
-    const encryptedData = new Uint8Array(fileBuffer);
-    const encryptedString = arrayBufferToString(encryptedData);
     
     // Parse key and IV
     const keyBytes = CryptoJS.enc.Base64.parse(keyString);
     const ivBytes = CryptoJS.enc.Base64.parse(ivString);
     
+    // Convert the file data to a format CryptoJS can use
+    const wordArray = arrayBufferToWordArray(fileBuffer);
+    const encryptedHex = CryptoJS.enc.Hex.stringify(wordArray);
+    const encryptedBase64 = CryptoJS.enc.Base64.stringify(CryptoJS.enc.Hex.parse(encryptedHex));
+    
     // Decrypt the data
-    const decrypted = CryptoJS.AES.decrypt(encryptedString, keyBytes, {
+    const decrypted = CryptoJS.AES.decrypt(encryptedBase64, keyBytes, {
       iv: ivBytes,
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7
     });
     
-    const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
-    const decryptedData = stringToUint8Array(decryptedString);
+    // Convert the decrypted data to bytes
+    const decryptedArrayBuffer = wordArrayToArrayBuffer(decrypted);
     
     // Create original filename (remove .enc extension if present)
     const originalName = encryptedFile.name.endsWith('.enc') 
@@ -127,7 +136,7 @@ export const decryptFile = async (
     }
     
     // Create a new file with decrypted data
-    return new File([decryptedData], originalName, {
+    return new File([decryptedArrayBuffer], originalName, {
       type: fileType
     });
   } catch (error) {
@@ -144,8 +153,7 @@ export const decryptFile = async (
 export const calculateChecksum = async (file: File): Promise<string> => {
   try {
     const buffer = await file.arrayBuffer();
-    const data = new Uint8Array(buffer);
-    const wordArray = arrayBufferToWordArray(data);
+    const wordArray = arrayBufferToWordArray(buffer);
     const hash = CryptoJS.SHA256(wordArray);
     return hash.toString(CryptoJS.enc.Hex);
   } catch (error) {
@@ -212,33 +220,48 @@ export const downloadFile = (file: File): void => {
   URL.revokeObjectURL(url);
 };
 
-// Helper function to convert ArrayBuffer to WordArray (for CryptoJS)
-function arrayBufferToWordArray(ab: ArrayBuffer | Uint8Array): CryptoJS.lib.WordArray {
-  const i8a = new Uint8Array(ab);
+// Convert ArrayBuffer to WordArray (for CryptoJS)
+export function arrayBufferToWordArray(ab: ArrayBuffer | Uint8Array): CryptoJS.lib.WordArray {
+  const i8a = ab instanceof Uint8Array ? ab : new Uint8Array(ab);
   const a = [];
   for (let i = 0; i < i8a.length; i += 4) {
     a.push(
-      (i8a[i] << 24) |
-      (i8a[i + 1] << 16) |
-      (i8a[i + 2] << 8) |
-      i8a[i + 3]
+      ((i8a[i] & 0xff) << 24) | 
+      ((i8a[i + 1] & 0xff) << 16) | 
+      ((i8a[i + 2] & 0xff) << 8) | 
+      (i8a[i + 3] & 0xff)
     );
   }
   return CryptoJS.lib.WordArray.create(a, i8a.length);
 }
 
-// Helper function to convert ArrayBuffer to string
-function arrayBufferToString(buffer: ArrayBuffer | Uint8Array): string {
-  const uint8Array = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  let str = '';
-  for (let i = 0; i < uint8Array.length; i++) {
-    str += String.fromCharCode(uint8Array[i]);
+// Convert WordArray to ArrayBuffer
+export function wordArrayToArrayBuffer(wordArray: CryptoJS.lib.WordArray): ArrayBuffer {
+  const words = wordArray.words;
+  const sigBytes = wordArray.sigBytes;
+  const buff = new ArrayBuffer(sigBytes);
+  const view = new DataView(buff);
+  
+  for (let i = 0; i < sigBytes; i += 4) {
+    const val = words[i >>> 2];
+    if (val !== undefined) {
+      view.setUint32(i, val);
+    }
   }
-  return str;
+  
+  return buff;
 }
 
-// Helper function to convert string to Uint8Array
-function stringToUint8Array(str: string): Uint8Array {
+// Convert ArrayBuffer to string
+export function arrayBufferToString(buffer: ArrayBuffer | Uint8Array): string {
+  const uint8Array = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  return Array.from(uint8Array)
+    .map(b => String.fromCharCode(b))
+    .join('');
+}
+
+// Convert string to Uint8Array
+export function stringToUint8Array(str: string): Uint8Array {
   const arr = new Uint8Array(str.length);
   for (let i = 0; i < str.length; i++) {
     arr[i] = str.charCodeAt(i);
@@ -246,8 +269,8 @@ function stringToUint8Array(str: string): Uint8Array {
   return arr;
 }
 
-// Helper function to convert base64 to ArrayBuffer
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
+// Convert base64 to ArrayBuffer
+export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const binaryString = atob(base64);
   const bytes = new Uint8Array(binaryString.length);
   for (let i = 0; i < binaryString.length; i++) {
@@ -256,8 +279,8 @@ function base64ToArrayBuffer(base64: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-// Helper function to convert ArrayBuffer to base64
-function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+// Convert ArrayBuffer to base64
+export function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
   const uint8Array = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
   let binary = '';
   for (let i = 0; i < uint8Array.byteLength; i++) {

@@ -8,11 +8,14 @@ import { FilePreview } from "@/components/file-preview";
 import { cn } from "@/lib/utils";
 import { encryptFile, calculateChecksum } from "@/utils/encryption";
 import { useToast } from "@/hooks/use-toast";
+import { generateFileId, formatFileSize, addFile, storeFileContent } from "@/utils/file-storage";
+import { getCurrentUser } from "@/utils/auth";
+import { logInfo, LogCategory } from "@/utils/audit-logger";
 
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: (fileData: UploadFileData) => void;
+  onUpload: () => void;
 }
 
 export interface UploadFileData {
@@ -93,8 +96,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     setIsEncrypting(true);
     
     try {
-      const checksum = await calculateChecksum(selectedFile);
-      const { encryptedFile: encrypted, algorithm, encryptionKey, iv } = await encryptFile(selectedFile);
+      const { encryptedFile: encrypted, algorithm, encryptionKey, iv, checksum } = await encryptFile(selectedFile);
       
       setEncryptedFile(encrypted);
       setEncryptionData({
@@ -132,20 +134,88 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     }
   };
   
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!selectedFile) return;
     
     const fileToUpload = encrypt && encryptedFile ? encryptedFile : selectedFile;
     
-    const uploadData: UploadFileData = {
-      file: fileToUpload,
-      originalFile: encrypt ? selectedFile : undefined,
-      encrypt: encrypt,
-      encryptionData: encrypt && encryptionData ? encryptionData : undefined
-    };
-    
-    onUpload(uploadData);
-    onClose();
+    try {
+      // Convert file to data URL for storage
+      const fileReader = new FileReader();
+      
+      fileReader.onload = async (e) => {
+        try {
+          const fileContent = e.target?.result;
+          
+          // Generate file ID
+          const fileId = generateFileId();
+          
+          // Generate additional file metadata
+          const now = new Date();
+          const currentUser = getCurrentUser();
+          const fileType = fileToUpload.type.split('/')[0] || 'document';
+          const tags = [fileType];
+          if (encrypt) tags.push('encrypted');
+          
+          // Create file record
+          const newFile = {
+            id: fileId,
+            name: fileToUpload.name,
+            extension: fileToUpload.name.split('.').pop() || '',
+            size: formatFileSize(fileToUpload.size),
+            tags: tags,
+            timestamp: now.toISOString(),
+            isFavorite: false,
+            isShared: false,
+            type: fileToUpload.type || 'application/octet-stream',
+            created: now.toISOString(),
+            modified: now.toISOString(),
+            createdBy: currentUser?.email || "Unknown User",
+            modifiedBy: currentUser?.email || "Unknown User",
+            isEncrypted: encrypt,
+            checksum: encrypt ? encryptionData?.checksum : await calculateChecksum(selectedFile),
+            encryptionData: encrypt && encryptionData ? {
+              algorithm: encryptionData.algorithm,
+              encryptionKey: encryptionData.encryptionKey,
+              iv: encryptionData.iv
+            } : undefined
+          };
+          
+          // Save file content
+          if (fileContent) {
+            storeFileContent(fileId, fileContent);
+          }
+          
+          // Save file record
+          addFile(newFile);
+          
+          // Log file upload
+          logInfo(LogCategory.FILE, `File uploaded: ${fileToUpload.name}`, {
+            fileId,
+            fileName: fileToUpload.name,
+            encrypted: encrypt
+          });
+          
+          onUpload();
+        } catch (error) {
+          console.error("Failed to process uploaded file:", error);
+          toast({
+            title: "Upload failed",
+            description: "Failed to process the uploaded file",
+            variant: "destructive",
+          });
+        }
+      };
+      
+      fileReader.readAsDataURL(fileToUpload);
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload file",
+        variant: "destructive",
+      });
+    }
   };
   
   return (
@@ -192,7 +262,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                     <div>
                       <p className="font-medium">{selectedFile.name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {(selectedFile.size / 1024).toFixed(2)} KB
+                        {formatFileSize(selectedFile.size)}
                       </p>
                     </div>
                   </div>
@@ -240,7 +310,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                 )}
               </div>
               
-              <FilePreview file={encrypt && encryptedFile ? encryptedFile : selectedFile} />
+              <FilePreview file={selectedFile} />
             </div>
           )}
           
@@ -268,4 +338,3 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     </Dialog>
   );
 }
-

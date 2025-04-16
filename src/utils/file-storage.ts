@@ -2,6 +2,8 @@
 import { v4 as uuidv4 } from "uuid";
 import { getCurrentUserEmail } from './auth';
 import { logInfo, logError, logSecurity, LogCategory } from './audit-logger';
+import { arrayBufferToBase64, base64ToArrayBuffer } from './encryption';
+import * as fs from 'fs';
 
 export interface FileInfo {
   id: string;
@@ -33,17 +35,70 @@ interface FileStorage {
 // In-memory file storage (in a real app, this would be a database)
 let fileStorage: FileStorage = { files: [] };
 
-// Load files from localStorage
-const loadFiles = (): void => {
-  const storedFiles = localStorage.getItem('fileStorage');
-  if (storedFiles) {
-    fileStorage = JSON.parse(storedFiles);
+// Directory for file storage
+const DATA_DIR = './data';
+const FILE_STORAGE_PATH = `${DATA_DIR}/fileStorage.json`;
+const FILE_CONTENT_DIR = `${DATA_DIR}/files`;
+
+// Ensure data directories exist
+const ensureDirectoriesExist = (): void => {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    
+    if (!fs.existsSync(FILE_CONTENT_DIR)) {
+      fs.mkdirSync(FILE_CONTENT_DIR, { recursive: true });
+    }
+  } catch (error) {
+    console.error("Failed to create data directories:", error);
+    // Fallback to localStorage if file system access fails
   }
 };
 
-// Save files to localStorage
+// Load files from storage
+const loadFiles = (): void => {
+  try {
+    ensureDirectoriesExist();
+    
+    // Try filesystem first
+    if (fs.existsSync(FILE_STORAGE_PATH)) {
+      const data = fs.readFileSync(FILE_STORAGE_PATH, 'utf8');
+      fileStorage = JSON.parse(data);
+      return;
+    }
+  } catch (error) {
+    console.error("Failed to load file storage from filesystem:", error);
+  }
+  
+  // Fallback to localStorage
+  try {
+    const storedFiles = localStorage.getItem('fileStorage');
+    if (storedFiles) {
+      fileStorage = JSON.parse(storedFiles);
+    }
+  } catch (error) {
+    console.error("Failed to load file storage from localStorage:", error);
+  }
+};
+
+// Save files to storage
 const saveFiles = (): void => {
-  localStorage.setItem('fileStorage', JSON.stringify(fileStorage));
+  try {
+    ensureDirectoriesExist();
+    
+    // Try filesystem first
+    fs.writeFileSync(FILE_STORAGE_PATH, JSON.stringify(fileStorage, null, 2));
+  } catch (error) {
+    console.error("Failed to save file storage to filesystem:", error);
+    
+    // Fallback to localStorage
+    try {
+      localStorage.setItem('fileStorage', JSON.stringify(fileStorage));
+    } catch (storageError) {
+      console.error("Failed to save to localStorage:", storageError);
+    }
+  }
 };
 
 // Initialize by loading files
@@ -63,6 +118,8 @@ export const addFile = (file: FileInfo): void => {
 
 // Get all files
 export const getAllFiles = (): FileInfo[] => {
+  // Ensure we have the latest data
+  loadFiles();
   return fileStorage.files;
 };
 
@@ -104,8 +161,20 @@ export const deleteFile = (id: string): boolean => {
   fileStorage.files.splice(fileIndex, 1);
   saveFiles();
   
-  // Also remove file content from localStorage
-  localStorage.removeItem(`file_${id}`);
+  // Also remove file content
+  try {
+    const filePath = `${FILE_CONTENT_DIR}/${id}`;
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    } else {
+      // Fallback to localStorage
+      localStorage.removeItem(`file_${id}`);
+    }
+  } catch (error) {
+    console.error("Failed to delete file content:", error);
+    // Still try localStorage as fallback
+    localStorage.removeItem(`file_${id}`);
+  }
   
   logInfo(LogCategory.FILE, `File deleted: ${deletedFile.name}`, {
     fileId: id,
@@ -146,12 +215,50 @@ export const shareFile = (id: string, recipient: string): boolean => {
 };
 
 // Store file content
-export const storeFileContent = (id: string, content: string): void => {
-  localStorage.setItem(`file_${id}`, content);
+export const storeFileContent = (id: string, content: string | ArrayBuffer): void => {
+  try {
+    ensureDirectoriesExist();
+    
+    // For ArrayBuffer, convert to base64 string
+    const contentToStore = content instanceof ArrayBuffer 
+      ? arrayBufferToBase64(content) 
+      : content;
+    
+    // Try filesystem first
+    const filePath = `${FILE_CONTENT_DIR}/${id}`;
+    fs.writeFileSync(filePath, contentToStore);
+  } catch (error) {
+    console.error("Failed to store file content to filesystem:", error);
+    
+    // Fallback to localStorage
+    try {
+      // For saving to localStorage, we need a string
+      const contentToStore = content instanceof ArrayBuffer 
+        ? arrayBufferToBase64(content) 
+        : content;
+        
+      localStorage.setItem(`file_${id}`, contentToStore);
+    } catch (storageError) {
+      console.error("Failed to store in localStorage:", storageError);
+    }
+  }
 };
 
 // Get file content
-export const getFileContent = (id: string): string | null => {
+export const getFileContent = (id: string): string | ArrayBuffer | null => {
+  try {
+    ensureDirectoriesExist();
+    
+    // Try filesystem first
+    const filePath = `${FILE_CONTENT_DIR}/${id}`;
+    if (fs.existsSync(filePath)) {
+      return fs.readFileSync(filePath, 'utf8');
+    }
+  } catch (error) {
+    console.error("Failed to read file content from filesystem:", error);
+  }
+  
+  // Fallback to localStorage
   return localStorage.getItem(`file_${id}`);
 };
 
@@ -205,6 +312,9 @@ export const getFilteredFiles = (
   sortBy?: string,
   sortOrder?: 'asc' | 'desc'
 ): FileInfo[] => {
+  // Make sure we have the latest data
+  loadFiles();
+  
   let filteredFiles = [...fileStorage.files];
   
   // Apply search query

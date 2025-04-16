@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentView, setCurrentView] = useState<"grid" | "list">("grid");
   const navigate = useNavigate();
+  const { toast: uiToast } = useToast();
   
   useEffect(() => {
     // Redirect if not authenticated
@@ -30,12 +31,25 @@ export default function Dashboard() {
     
     // Load files
     loadFiles();
+    
+    // Set up interval to refresh files every 10 seconds
+    const refreshInterval = setInterval(() => {
+      loadFiles();
+    }, 10000);
+    
+    return () => clearInterval(refreshInterval);
   }, [navigate]);
   
   const loadFiles = () => {
-    // Get all files
-    const allFiles = getAllFiles();
-    setFiles(allFiles);
+    try {
+      // Get all files
+      const allFiles = getAllFiles();
+      console.log("Loaded files:", allFiles.length);
+      setFiles(allFiles);
+    } catch (error) {
+      console.error("Error loading files:", error);
+      toast.error("Failed to load files");
+    }
   };
   
   const handleSearch = (query: string) => {
@@ -66,6 +80,15 @@ export default function Dashboard() {
   const handleViewChange = (view: "grid" | "list") => {
     setCurrentView(view);
     toast.info(`View changed to ${view} view`);
+  };
+
+  const handleFileUploaded = () => {
+    // Reload files after upload
+    loadFiles();
+    setIsUploadModalOpen(false);
+    
+    // Notify the user
+    toast.success("File uploaded successfully");
   };
   
   return (
@@ -121,11 +144,7 @@ export default function Dashboard() {
       <UploadModal 
         isOpen={isUploadModalOpen} 
         onClose={() => setIsUploadModalOpen(false)}
-        onUpload={() => {
-          // Reload files after upload
-          loadFiles();
-          setIsUploadModalOpen(false);
-        }}
+        onUpload={handleFileUploaded}
       />
       
       <DecryptionModal
