@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Header } from "@/components/header";
@@ -95,7 +96,8 @@ export default function AppLayout() {
         encryptionData: encrypt && encryptionData ? {
           algorithm: encryptionData.algorithm,
           encryptionKey: encryptionData.encryptionKey,
-          iv: encryptionData.iv
+          iv: encryptionData.iv,
+          checksum: encryptionData.checksum
         } : undefined
       };
       

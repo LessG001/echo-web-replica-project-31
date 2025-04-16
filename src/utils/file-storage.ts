@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { FileInfo } from '@/types/file';
 import { downloadFile as downloadFileUtil } from '@/utils/encryption';
@@ -138,7 +137,7 @@ export const deleteFile = (id: string): boolean => {
   return false;
 };
 
-// Download a file from FileInfo
+// Export downloadFile function to be used in FileDetail.tsx
 export const downloadFile = async (fileId: string): Promise<void> => {
   try {
     const fileInfo = getFileById(fileId);

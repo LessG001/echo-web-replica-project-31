@@ -15,15 +15,13 @@ export interface FileInfo {
   tags: string[];
   timestamp: string; // Formatted timestamp for display
   checksum?: string;
-  encryptionData?: {
-    algorithm: string;
-    encryptionKey?: string;
-    iv: string;
-  };
+  encryptionData?: EncryptionData;
+  previewUrl?: string;
 }
 
 export interface EncryptionData {
   algorithm: string;
   encryptionKey?: string;
   iv: string;
+  checksum: string;
 }

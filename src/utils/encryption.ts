@@ -1,4 +1,3 @@
-
 // This file contains encryption-related utility functions
 
 import CryptoJS from 'crypto-js';

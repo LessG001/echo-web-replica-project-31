@@ -297,8 +297,7 @@ export function Register() {
       const secret = generateMFASecret();
       setMfaSecret(secret);
       
-      const qrCode = generateMFAQRCode(secret, email);
-      setMfaQrCode(qrCode);
+      generateMFAQRCode(secret, email).then(url => setMfaQrCode(url));
       
       setCurrentStep(2);
       

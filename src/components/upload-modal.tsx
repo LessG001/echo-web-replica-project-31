@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Lock, Upload, X } from "lucide-react";
-import { encryptFile } from "@/utils/encryption";
+import { encryptFile as encryptFileUtil } from "@/utils/encryption";
 import { generateFileId, formatFileSize, formatTimestamp, addFile, saveFileContent } from "@/utils/file-storage";
 import { getCurrentUser } from "@/utils/auth";
 import { FileInfo, EncryptionData } from "@/types/file";
@@ -18,6 +17,7 @@ import { toast } from "sonner";
 export interface UploadFileData {
   file: File;
   fileInfo: FileInfo;
+  encrypt: boolean;
   encryptedFile?: File;
   encryptionData?: EncryptionData;
 }
@@ -98,12 +98,13 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
         setIsEncrypting(true);
         
         try {
-          const encryptionResult = await encryptFile(selectedFile);
+          const encryptionResult = await encryptFileUtil(selectedFile);
           encryptedFileObj = encryptionResult.encryptedFile;
           fileEncryptionData = {
             algorithm: encryptionResult.algorithm,
             encryptionKey: encryptionResult.encryptionKey,
-            iv: encryptionResult.iv
+            iv: encryptionResult.iv,
+            checksum: encryptionResult.checksum
           };
           
           setEncryptedFile(encryptedFileObj);
@@ -145,7 +146,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       // Add encryption data if available
       if (encryptFile && fileEncryptionData) {
         fileInfo.encryptionData = fileEncryptionData;
-        fileInfo.checksum = "checksum-placeholder"; // In a real app, calculate this
+        fileInfo.checksum = fileEncryptionData.checksum;
       }
       
       // Save file info to storage
@@ -161,6 +162,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       const fileData: UploadFileData = {
         file: selectedFile,
         fileInfo: fileInfo,
+        encrypt: encryptFile
       };
       
       if (encryptedFileObj && fileEncryptionData) {
