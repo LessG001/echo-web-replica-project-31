@@ -1,25 +1,20 @@
-import { useState, useRef, useEffect } from "react";
-import { X, Upload, File, Key, Lock } from "lucide-react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { FilePreview } from "@/components/file-preview";
-import { cn } from "@/lib/utils";
-import { encryptFile, calculateChecksum } from "@/utils/encryption";
-import { useToast } from "@/hooks/use-toast";
-import { generateFileId, formatFileSize, addFile, storeFileContent } from "@/utils/file-storage";
-import { getCurrentUser } from "@/utils/auth";
-import { logInfo, LogCategory } from "@/utils/audit-logger";
 
-interface UploadModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onUpload: (fileData: UploadFileData) => void;
-}
+import { useState, useRef, ChangeEvent } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { encryptFile, downloadFile } from "@/utils/encryption";
+import { Card, CardContent } from "@/components/ui/card";
+import { FileUp, Key, Copy, Download, CheckCircle2, AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
 
 export interface UploadFileData {
   file: File;
-  originalFile?: File;
   encrypt: boolean;
   encryptionData?: {
     algorithm: string;
@@ -29,306 +24,265 @@ export interface UploadFileData {
   };
 }
 
+interface UploadModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpload: (fileData?: UploadFileData) => void;
+}
+
 export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [encrypt, setEncrypt] = useState(false);
-  const [isEncrypting, setIsEncrypting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
   const [encryptedFile, setEncryptedFile] = useState<File | null>(null);
-  const [encryptionData, setEncryptionData] = useState<{
-    algorithm: string;
-    encryptionKey: string;
-    iv: string;
-    checksum: string;
-  } | null>(null);
+  const [showEncryptionSuccess, setShowEncryptionSuccess] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
   
-  useEffect(() => {
-    if (!isOpen) {
-      resetFileState();
-    }
-  }, [isOpen]);
-  
-  const resetFileState = () => {
-    setSelectedFile(null);
-    setEncryptedFile(null);
-    setEncryptionData(null);
-    setEncrypt(false);
-    setIsEncrypting(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      processSelectedFile(file);
-    }
-  };
-  
-  const processSelectedFile = (file: File) => {
-    setSelectedFile(file);
-    setEncryptedFile(null);
-    setEncryptionData(null);
-  };
-  
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      processSelectedFile(file);
-    }
-  };
-  
-  const handleBrowseClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-  
-  const handleEncrypt = async () => {
-    if (!selectedFile) return;
-    
-    setIsEncrypting(true);
-    
-    try {
-      const { encryptedFile: encrypted, algorithm, encryptionKey, iv, checksum } = await encryptFile(selectedFile);
-      
-      setEncryptedFile(encrypted);
-      setEncryptionData({
-        algorithm,
-        encryptionKey,
-        iv,
-        checksum
-      });
-      
-      toast({
-        title: "File encrypted",
-        description: `${selectedFile.name} has been encrypted successfully`,
-      });
-    } catch (error) {
-      console.error("Encryption failed:", error);
-      toast({
-        title: "Encryption failed",
-        description: "Failed to encrypt the file. Please try again.",
-        variant: "destructive",
-      });
-      setEncrypt(false);
-    } finally {
-      setIsEncrypting(false);
-    }
-  };
-  
-  const handleEncryptToggle = (checked: boolean) => {
-    setEncrypt(checked);
-    
-    if (!checked) {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+      // Reset encryption-related states when a new file is selected
+      setEncryptionKey(null);
       setEncryptedFile(null);
-      setEncryptionData(null);
-    } else if (selectedFile && !encryptedFile) {
-      handleEncrypt();
+      setShowEncryptionSuccess(false);
     }
   };
   
-  const handleUpload = async () => {
-    if (!selectedFile) return;
+  const handleClose = () => {
+    // Reset all states when closing the modal
+    setFile(null);
+    setEncrypt(false);
+    setUploading(false);
+    setUploadProgress(0);
+    setEncryptionKey(null);
+    setEncryptedFile(null);
+    setShowEncryptionSuccess(false);
+    onClose();
+  };
+  
+  const processFile = async () => {
+    if (!file) return;
     
-    const fileToUpload = encrypt && encryptedFile ? encryptedFile : selectedFile;
+    setUploading(true);
+    setUploadProgress(0);
     
     try {
-      const fileReader = new FileReader();
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          const next = prev + 10;
+          return next > 90 ? 90 : next;
+        });
+      }, 200);
       
-      fileReader.onload = async (e) => {
-        try {
-          const fileContent = e.target?.result;
-          
-          const fileId = generateFileId();
-          
-          const now = new Date();
-          const currentUser = getCurrentUser();
-          const fileType = fileToUpload.type.split('/')[0] || 'document';
-          const tags = [fileType];
-          if (encrypt) tags.push('encrypted');
-          
-          const newFile = {
-            id: fileId,
-            name: fileToUpload.name,
-            extension: fileToUpload.name.split('.').pop() || '',
-            size: formatFileSize(fileToUpload.size),
-            tags: tags,
-            timestamp: now.toISOString(),
-            isFavorite: false,
-            isShared: false,
-            type: fileToUpload.type || 'application/octet-stream',
-            created: now.toISOString(),
-            modified: now.toISOString(),
-            createdBy: currentUser?.email || "Unknown User",
-            modifiedBy: currentUser?.email || "Unknown User",
-            isEncrypted: encrypt,
-            checksum: encrypt ? encryptionData?.checksum : await calculateChecksum(selectedFile),
-            encryptionData: encrypt && encryptionData ? {
-              algorithm: encryptionData.algorithm,
-              encryptionKey: encryptionData.encryptionKey,
-              iv: encryptionData.iv
-            } : undefined
-          };
-          
-          if (fileContent) {
-            storeFileContent(fileId, fileContent);
+      let fileData: UploadFileData = {
+        file,
+        encrypt: false
+      };
+      
+      // If encryption is enabled, encrypt the file
+      if (encrypt) {
+        const encryptionResult = await encryptFile(file);
+        
+        // Store the encrypted file and its encryption key
+        setEncryptedFile(encryptionResult.encryptedFile);
+        
+        // Format the encryption key for display
+        setEncryptionKey(encryptionResult.encryptionKey);
+        
+        fileData = {
+          file: encryptionResult.encryptedFile,
+          encrypt: true,
+          encryptionData: {
+            algorithm: encryptionResult.algorithm,
+            encryptionKey: encryptionResult.encryptionKey,
+            iv: encryptionResult.iv,
+            checksum: encryptionResult.checksum
           }
-          
-          addFile(newFile);
-          
-          logInfo(LogCategory.FILE, `File uploaded: ${fileToUpload.name}`, {
-            fileId,
-            fileName: fileToUpload.name,
-            encrypted: encrypt
-          });
-          
-          onUpload({
-            file: fileToUpload,
-            encrypt,
-            encryptionData: encryptionData || undefined
-          });
-        } catch (error) {
-          console.error("Failed to process uploaded file:", error);
-          toast({
-            title: "Upload failed",
-            description: "Failed to process the uploaded file",
-            variant: "destructive",
-          });
+        };
+        
+        setShowEncryptionSuccess(true);
+      }
+      
+      // Complete the progress bar
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+      
+      // If we're not showing encryption success screen, upload immediately
+      if (!encrypt) {
+        setTimeout(() => {
+          onUpload(fileData);
+        }, 500);
+      } else {
+        // For encrypted files, we wait for the user to acknowledge the key
+        // The actual upload happens when they click "Continue"
+        console.log("Encryption completed, waiting for user to continue...");
+      }
+    } catch (error) {
+      console.error("Error during file processing:", error);
+      toast.error("Failed to process file");
+    } finally {
+      if (!encrypt) {
+        setUploading(false);
+      }
+    }
+  };
+  
+  const handleCopyKey = () => {
+    if (encryptionKey) {
+      navigator.clipboard.writeText(encryptionKey);
+      toast.success("Encryption key copied to clipboard");
+    }
+  };
+  
+  const handleDownloadEncrypted = () => {
+    if (encryptedFile) {
+      downloadFile(encryptedFile);
+      toast.success(`${encryptedFile.name} is being downloaded`);
+    }
+  };
+  
+  const handleContinue = () => {
+    if (encryptedFile && encryptionKey) {
+      const fileData: UploadFileData = {
+        file: encryptedFile,
+        encrypt: true,
+        encryptionData: {
+          algorithm: 'AES-256-CBC',
+          encryptionKey: encryptionKey,
+          iv: encryptionKey.split('.')[1] || '',
+          checksum: ''
         }
       };
       
-      fileReader.readAsDataURL(fileToUpload);
-    } catch (error) {
-      console.error("Upload error:", error);
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload file",
-        variant: "destructive",
-      });
+      onUpload(fileData);
     }
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md bg-card p-0 border-border/40">
-        <div className="flex flex-col p-4 space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Upload File</h2>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          {!selectedFile ? (
-            <div 
-              className="border-2 border-dashed border-border/60 rounded-lg p-6 text-center flex flex-col items-center justify-center space-y-4"
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              <Upload className="h-10 w-10 text-primary" />
-              <div>
-                <h3 className="text-base font-medium mb-2">Upload File</h3>
-                <p className="text-muted-foreground text-sm mb-4">Drag and drop your file here, or click to browse</p>
-                <Button 
-                  variant="outline" 
-                  onClick={handleBrowseClick}
-                >
-                  Browse Files
-                </Button>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Upload File</DialogTitle>
+        </DialogHeader>
+        
+        {!showEncryptionSuccess ? (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="file" className="text-sm font-medium">
+                Select a file to upload
+              </Label>
+              
+              <div className="mt-2">
+                <Input
+                  id="file"
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  className="cursor-pointer"
+                  disabled={uploading}
+                />
               </div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
-              />
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="border border-border/60 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <File className="h-6 w-6 text-primary" />
-                    <div>
-                      <p className="font-medium">{selectedFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatFileSize(selectedFile.size)}
-                      </p>
-                    </div>
-                  </div>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={resetFileState} 
-                    className="h-8 w-8"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-foreground" />
-                    <span className="text-sm font-medium">Encrypt file</span>
-                  </div>
+            
+            {file && (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2">
                   <Switch 
+                    id="encrypt" 
                     checked={encrypt} 
-                    onCheckedChange={handleEncryptToggle}
-                    disabled={isEncrypting} 
+                    onCheckedChange={setEncrypt} 
+                    disabled={uploading}
                   />
+                  <Label htmlFor="encrypt" className="cursor-pointer">
+                    Encrypt this file
+                  </Label>
                 </div>
                 
-                {encrypt && encryptionData && (
-                  <div className="mt-4 pt-4 border-t border-border/40">
-                    <div className="flex justify-between items-center mb-2">
-                      <h4 className="text-sm font-medium">Encryption Key</h4>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => {
-                          navigator.clipboard.writeText(encryptionData.encryptionKey);
-                          toast({ description: "Encryption key copied to clipboard" });
-                        }}
-                      >
-                        Copy
-                      </Button>
+                {encrypt && (
+                  <Alert>
+                    <Key className="h-4 w-4" />
+                    <AlertDescription>
+                      You will receive an encryption key after uploading.
+                      Keep it safe as it's required to decrypt the file.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {uploading && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>{encrypt ? "Encrypting..." : "Uploading..."}</span>
+                      <span>{uploadProgress}%</span>
                     </div>
-                    <div className="bg-secondary/40 p-2 rounded text-xs font-mono truncate">
-                      {encryptionData.encryptionKey}
-                    </div>
+                    <Progress value={uploadProgress} />
                   </div>
                 )}
+                
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={handleClose} disabled={uploading}>
+                    Cancel
+                  </Button>
+                  <Button onClick={processFile} disabled={!file || uploading}>
+                    <FileUp className="h-4 w-4 mr-2" />
+                    {encrypt ? "Encrypt & Upload" : "Upload"}
+                  </Button>
+                </div>
               </div>
-              
-              <FilePreview file={selectedFile} />
-            </div>
-          )}
-          
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button 
-              disabled={!selectedFile || (encrypt && isEncrypting)} 
-              onClick={handleUpload}
-              className={cn(!selectedFile && "opacity-50 cursor-not-allowed")}
-            >
-              {isEncrypting ? (
-                <>
-                  <Lock className="h-4 w-4 mr-2 animate-spin" />
-                  Encrypting...
-                </>
-              ) : (
-                <>Upload{encrypt ? " Encrypted" : ""}</>
-              )}
-            </Button>
+            )}
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-green-500">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="font-medium">File Encrypted Successfully</span>
+            </div>
+            
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Encryption Key</Label>
+                  <div className="flex mt-1">
+                    <Input 
+                      value={encryptionKey || ""} 
+                      readOnly 
+                      className="font-mono text-sm pr-14"
+                    />
+                    <Button 
+                      size="icon" 
+                      variant="ghost" 
+                      className="ml-[-40px]"
+                      onClick={handleCopyKey}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Alert variant="warning">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                This key will only be shown once. Make sure to save it in a secure location.
+                Without this key, you won't be able to decrypt the file.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="flex justify-between gap-2">
+              <Button variant="outline" onClick={handleDownloadEncrypted}>
+                <Download className="h-4 w-4 mr-2" />
+                Download Encrypted File
+              </Button>
+              <Button onClick={handleContinue}>
+                Continue
+              </Button>
+            </div>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

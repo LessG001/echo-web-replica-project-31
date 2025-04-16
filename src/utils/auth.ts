@@ -4,7 +4,6 @@ import SHA256 from "crypto-js/sha256";
 import Base64 from "crypto-js/enc-base64";
 import { v4 as uuidv4 } from "uuid";
 import { logInfo, logSecurity, LogCategory } from './audit-logger';
-import * as fs from 'fs';
 
 // User interface
 export interface User {
@@ -17,40 +16,11 @@ export interface User {
   lastLogin?: string;
 }
 
-// Define paths for data storage
-const DATA_DIR = './data';
-const USERS_FILE_PATH = `${DATA_DIR}/users.json`;
-
 // In-memory user storage for demo purposes
 let users: User[] = [];
 
-// Ensure data directory exists
-const ensureDataDirectoryExists = (): void => {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-  } catch (error) {
-    console.error("Failed to create data directory:", error);
-  }
-};
-
-// Load users from storage
+// Load users from localStorage
 const loadUsers = (): void => {
-  try {
-    ensureDataDirectoryExists();
-    
-    // Try filesystem first
-    if (fs.existsSync(USERS_FILE_PATH)) {
-      const data = fs.readFileSync(USERS_FILE_PATH, 'utf8');
-      users = JSON.parse(data);
-      return;
-    }
-  } catch (error) {
-    console.error("Failed to load users from filesystem:", error);
-  }
-  
-  // Fallback to localStorage
   try {
     const storedUsers = localStorage.getItem('users');
     if (storedUsers) {
@@ -61,22 +31,12 @@ const loadUsers = (): void => {
   }
 };
 
-// Save users to storage
+// Save users to localStorage
 const saveUsers = (): void => {
   try {
-    ensureDataDirectoryExists();
-    
-    // Try filesystem first
-    fs.writeFileSync(USERS_FILE_PATH, JSON.stringify(users, null, 2));
-  } catch (error) {
-    console.error("Failed to save users to filesystem:", error);
-    
-    // Fallback to localStorage
-    try {
-      localStorage.setItem('users', JSON.stringify(users));
-    } catch (storageError) {
-      console.error("Failed to save to localStorage:", storageError);
-    }
+    localStorage.setItem('users', JSON.stringify(users));
+  } catch (storageError) {
+    console.error("Failed to save to localStorage:", storageError);
   }
 };
 
@@ -307,7 +267,8 @@ export const setupMFA = (userId: string, secret: string): boolean => {
 // Log an error
 function logError(category: LogCategory, message: string, details?: any): void {
   console.error(`[${category}] ${message}`, details);
-  // You might want to add actual error logging here
+  // Also log to audit logger
+  logInfo(category, message, details);
 }
 
 // Verify MFA token
@@ -393,9 +354,15 @@ export const verifyCredentials = (email: string, password: string): boolean => {
 // Initialize with a default admin user if no users exist
 export const initializeDefaultUser = (): void => {
   if (users.length === 0) {
-    register("admin@example.com", "admin123");
-    console.log("Created default user: admin@example.com / admin123");
-    logInfo(LogCategory.SYSTEM, "Default admin user created", {});
+    const defaultUserId = register("admin@example.com", "admin123").userId || "";
+    
+    // Enable MFA for default user
+    if (defaultUserId) {
+      setupMFA(defaultUserId, "default-mfa-secret");
+      logInfo(LogCategory.SYSTEM, "Default admin user created with MFA enabled", {});
+    }
+    
+    console.log("Created default user: admin@example.com / admin123 (MFA enabled)");
   }
 };
 
@@ -403,4 +370,4 @@ export const initializeDefaultUser = (): void => {
 initializeDefaultUser();
 
 // Export types
-export type { Session };
+export type { Session, User };

@@ -88,7 +88,9 @@ export default function Dashboard() {
     setIsUploadModalOpen(false);
     
     // Notify the user
-    toast.success("File uploaded successfully");
+    if (fileData) {
+      toast.success(`${fileData.file.name} uploaded successfully`);
+    }
   };
   
   return (

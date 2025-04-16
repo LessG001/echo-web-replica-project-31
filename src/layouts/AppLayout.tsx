@@ -15,7 +15,7 @@ import {
 } from "@/utils/auth";
 import { logInfo, LogCategory } from "@/utils/audit-logger";
 import { toast } from "sonner";
-import { calculateChecksum, arrayBufferToBase64 } from "@/utils/encryption";
+import { calculateChecksum } from "@/utils/encryption";
 import { addFile, generateFileId, formatTimestamp, formatFileSize } from "@/utils/file-storage";
 
 export default function AppLayout() {
@@ -124,6 +124,9 @@ export default function AppLayout() {
       });
       
       toast.success(`${file.name} has been uploaded ${encrypt ? 'with encryption' : ''}`);
+      
+      // Close modal when done
+      setIsUploadModalOpen(false);
     } catch (error) {
       console.error("Upload error:", error);
       toast.error("Failed to upload file");
@@ -175,7 +178,7 @@ export default function AppLayout() {
           <UploadModal 
             isOpen={isUploadModalOpen} 
             onClose={() => setIsUploadModalOpen(false)}
-            onUpload={(fileData: UploadFileData) => handleUpload(fileData)}
+            onUpload={handleUpload}
           />
           
           <DecryptionModal

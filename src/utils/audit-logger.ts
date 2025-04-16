@@ -1,6 +1,4 @@
-
 import { getCurrentUserEmail } from './auth';
-import * as fs from 'fs';
 
 export enum LogLevel {
   INFO = 'INFO',
@@ -25,40 +23,11 @@ interface LogEntry {
   details?: any;
 }
 
-// Define paths for data storage
-const DATA_DIR = './data';
-const LOGS_FILE_PATH = `${DATA_DIR}/auditLogs.json`;
-
 // In-memory log storage
 let auditLogs: LogEntry[] = [];
 
-// Ensure data directory exists
-const ensureDataDirectoryExists = (): void => {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-  } catch (error) {
-    console.error("Failed to create data directory:", error);
-  }
-};
-
-// Load logs from storage
+// Load logs from localStorage
 const loadLogs = (): void => {
-  try {
-    ensureDataDirectoryExists();
-    
-    // Try filesystem first
-    if (fs.existsSync(LOGS_FILE_PATH)) {
-      const data = fs.readFileSync(LOGS_FILE_PATH, 'utf8');
-      auditLogs = JSON.parse(data);
-      return;
-    }
-  } catch (error) {
-    console.error("Failed to load audit logs from filesystem:", error);
-  }
-  
-  // Fallback to localStorage
   try {
     const storedLogs = localStorage.getItem('auditLogs');
     if (storedLogs) {
@@ -69,22 +38,12 @@ const loadLogs = (): void => {
   }
 };
 
-// Save logs to storage
+// Save logs to localStorage
 const saveLogs = (): void => {
   try {
-    ensureDataDirectoryExists();
-    
-    // Try filesystem first
-    fs.writeFileSync(LOGS_FILE_PATH, JSON.stringify(auditLogs, null, 2));
-  } catch (error) {
-    console.error("Failed to save audit logs to filesystem:", error);
-    
-    // Fallback to localStorage
-    try {
-      localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
-    } catch (storageError) {
-      console.error("Failed to save to localStorage:", storageError);
-    }
+    localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
+  } catch (storageError) {
+    console.error("Failed to save to localStorage:", storageError);
   }
 };
 

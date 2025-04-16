@@ -1,3 +1,4 @@
+
 import CryptoJS from 'crypto-js';
 
 /**
@@ -288,5 +289,5 @@ export function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
   return btoa(binary);
 }
 
-// Export types and helper functions
+// Export types
 export type { EncryptionResult, DecryptionResult };
