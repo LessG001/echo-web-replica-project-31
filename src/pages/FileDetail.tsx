@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -208,6 +207,22 @@ export default function FileDetailsPage() {
     handleDecrypt(encryptedFileObject, key, file.encryptionData.iv);
   };
   
+  // For the component, we need to ensure we're passing a properly typed file object
+  const fileDetailProps = file ? {
+    id: file.id,
+    name: file.name,
+    extension: file.extension,
+    size: file.size,
+    type: file.type || 'application/octet-stream', // Provide default value for type
+    created: file.created,
+    modified: file.modified,
+    createdBy: file.createdBy,
+    modifiedBy: file.modifiedBy,
+    isEncrypted: !!file.isEncrypted,
+    checksum: file.checksum,
+    encryptionData: file.encryptionData
+  } : null;
+  
   return (
     <div className="flex-1 p-6">
       <div className="flex items-center mb-6">
@@ -222,14 +237,16 @@ export default function FileDetailsPage() {
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <FileDetail 
-          file={file}
-          onDownload={handleDownload}
-          onShare={handleShare}
-          onDelete={handleDelete}
-          onDecrypt={file.isEncrypted && !decryptedFile ? handleDecryptionKeySubmit : undefined}
-          decrypting={decrypting}
-        />
+        {fileDetailProps && (
+          <FileDetail 
+            file={fileDetailProps}
+            onDownload={handleDownload}
+            onShare={handleShare}
+            onDelete={handleDelete}
+            onDecrypt={file.isEncrypted && !decryptedFile ? handleDecryptionKeySubmit : undefined}
+            decrypting={decrypting}
+          />
+        )}
         
         {/* Show file preview with both decrypted and encrypted options */}
         {(fileObject || encryptedFileObject) ? (

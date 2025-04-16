@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { NavIcons } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { Unlock } from "lucide-react";
+import { Unlock, History, FileText } from "lucide-react";
 
 interface SidebarProps {
   storageUsed: number;
@@ -107,14 +107,14 @@ export function Sidebar({ storageUsed, storageTotal, onUploadClick, onDecryptCli
           className={`nav-item ${currentPath === "/audit-logs" ? "active" : ""}`}
           onClick={() => handleNavClick("/audit-logs", "Audit Logs")}
         >
-          <NavIcons.Audit className="h-5 w-5" />
+          <FileText className="h-5 w-5" />
           <span>Audit Logs</span>
         </button>
         <button 
           className={`nav-item ${currentPath === "/profile" ? "active" : ""}`}
           onClick={() => handleNavClick("/profile", "Profile")}
         >
-          <NavIcons.User className="h-5 w-5" />
+          <NavIcons.Profile className="h-5 w-5" />
           <span>Profile</span>
         </button>
       </div>
