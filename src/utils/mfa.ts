@@ -33,7 +33,7 @@ export const generateMFAQRCode = async (
   }
 };
 
-// In a real app, we would verify the TOTP code here
+// In a real app, we would verify the TOTP code here using a proper TOTP algorithm
 // For demo purposes, we'll use a simple validation (any 6-digit number)
 export const verifyTOTP = (code: string, secret: string): boolean => {
   // For a real implementation, we would use a TOTP library
