@@ -71,6 +71,34 @@ export const decryptFile = async (
   }
 };
 
+// Helper function to generate a file preview
+export const generateFilePreview = async (file: File): Promise<string> => {
+  try {
+    if (file.type.startsWith('image/')) {
+      return URL.createObjectURL(file);
+    }
+    
+    if (file.type === 'application/pdf') {
+      return URL.createObjectURL(file);
+    }
+    
+    if (file.type === 'text/plain' || 
+        file.type === 'text/html' || 
+        file.type === 'text/css' || 
+        file.type === 'application/json' ||
+        file.type === 'text/javascript') {
+      const text = await file.text();
+      return text;
+    }
+    
+    // Default: no preview available
+    return URL.createObjectURL(file);
+  } catch (error) {
+    console.error("Preview generation error:", error);
+    throw new Error("Failed to generate preview");
+  }
+};
+
 // Helper function to generate a random encryption key
 const generateRandomKey = (): string => {
   // In a real application, use the Web Crypto API

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { FileGrid } from "@/components/file-grid";
 import { FileToolbar } from "@/components/file-toolbar";
-import { getAllFiles, FileInfo } from "@/utils/file-storage";
+import { getFiles, FileInfo } from "@/utils/file-storage";
 import { toast } from "sonner";
 import { isAuthenticated } from "@/utils/auth";
 import { useNavigate } from "react-router-dom";
@@ -24,7 +24,7 @@ export default function TagsPage() {
     }
     
     // Load all files
-    const allFiles = getAllFiles();
+    const allFiles = getFiles();
     
     // Extract all unique tags
     const tagsMap = new Map<string, number>();
@@ -48,10 +48,10 @@ export default function TagsPage() {
     // If already selected, clear selection
     if (selectedTag === tag) {
       setSelectedTag(null);
-      setFiles(getAllFiles());
+      setFiles(getFiles());
     } else {
       setSelectedTag(tag);
-      const filteredFiles = getAllFiles().filter(file => 
+      const filteredFiles = getFiles().filter(file => 
         file.tags.includes(tag)
       );
       setFiles(filteredFiles);
@@ -61,7 +61,7 @@ export default function TagsPage() {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     
-    let filteredFiles = getAllFiles();
+    let filteredFiles = getFiles();
     
     // Apply tag filter if selected
     if (selectedTag) {

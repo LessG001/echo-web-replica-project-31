@@ -10,7 +10,7 @@ import { NavIcons } from "@/components/ui/icons";
 import { Unlock } from "lucide-react";
 import { isAuthenticated } from "@/utils/auth";
 import { useNavigate } from "react-router-dom";
-import { getAllFiles, FileInfo } from "@/utils/file-storage";
+import { getFiles, FileInfo } from "@/utils/file-storage";
 import { toast } from "sonner";
 
 export default function Dashboard() {
@@ -43,7 +43,7 @@ export default function Dashboard() {
   const loadFiles = () => {
     try {
       // Get all files
-      const allFiles = getAllFiles();
+      const allFiles = getFiles();
       console.log("Loaded files:", allFiles.length);
       setFiles(allFiles);
     } catch (error) {
@@ -60,7 +60,7 @@ export default function Dashboard() {
     }
     
     // Filter files by query
-    const filteredFiles = getAllFiles().filter(file => 
+    const filteredFiles = getFiles().filter(file => 
       file.name.toLowerCase().includes(query.toLowerCase()) ||
       file.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))
     );

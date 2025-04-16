@@ -1,5 +1,6 @@
 
 import { logSecurity, LogCategory } from "@/utils/audit-logger";
+import { verifyTOTP, generateMFASecret } from "@/utils/mfa";
 
 // Define user interface without export to avoid conflict
 interface UserData {
@@ -9,6 +10,8 @@ interface UserData {
   mfaEnabled: boolean;
   mfaSecret?: string;
   lastActivity: number;
+  createdAt: number; // Add timestamp for account creation
+  lastLogin?: number; // Add timestamp for last login
 }
 
 // Export with different name to avoid conflict
@@ -24,7 +27,9 @@ const DEFAULT_USER = {
   password: "Password123!",
   mfaEnabled: true,
   mfaSecret: "JBSWY3DPEHPK3PXP", // Demo MFA secret
-  lastActivity: Date.now()
+  lastActivity: Date.now(),
+  createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+  lastLogin: Date.now() - 2 * 24 * 60 * 60 * 1000 // 2 days ago
 };
 
 // Initialize users in localStorage if they don't exist
@@ -63,7 +68,8 @@ export const register = (email: string, password: string): { success: boolean; m
     email,
     password,
     mfaEnabled: false,
-    lastActivity: Date.now()
+    lastActivity: Date.now(),
+    createdAt: Date.now()
   };
   
   users.push(newUser);
@@ -96,6 +102,13 @@ export const login = (email: string, password: string): { success: boolean; mess
     return { success: true, message: "MFA verification required", requireMFA: true, userId: user.id };
   }
   
+  // Update last login time
+  const userIndex = users.findIndex(u => u.id === user.id);
+  if (userIndex !== -1) {
+    users[userIndex].lastLogin = Date.now();
+    updateUsers(users);
+  }
+  
   // Create session
   createSession(user);
   
@@ -126,11 +139,43 @@ export const completeMFALogin = (userId: string, code: string): { success: boole
     return { success: false, message: "Invalid verification code" };
   }
   
+  // Update last login time
+  const userIndex = users.findIndex(u => u.id === user.id);
+  if (userIndex !== -1) {
+    users[userIndex].lastLogin = Date.now();
+    updateUsers(users);
+  }
+  
   // Create session
   createSession(user);
   
   logSecurity(LogCategory.AUTH, `User completed MFA login: ${user.email}`);
   return { success: true, message: "Login successful" };
+};
+
+// Change password
+export const changePassword = (userId: string, currentPassword: string, newPassword: string): { success: boolean; message: string } => {
+  const users = getUsers();
+  const userIndex = users.findIndex(user => user.id === userId);
+  
+  if (userIndex === -1) {
+    return { success: false, message: "User not found" };
+  }
+  
+  const user = users[userIndex];
+  
+  // Verify current password
+  if (user.password !== currentPassword) {
+    logSecurity(LogCategory.AUTH, `Failed password change attempt: Incorrect current password for user ${user.email}`);
+    return { success: false, message: "Current password is incorrect" };
+  }
+  
+  // Update password
+  users[userIndex].password = newPassword;
+  updateUsers(users);
+  
+  logSecurity(LogCategory.AUTH, `Password changed for user: ${user.email}`);
+  return { success: true, message: "Password changed successfully" };
 };
 
 // Set up MFA for a user
@@ -156,7 +201,10 @@ const createSession = (user: UserData): void => {
   const session = {
     userId: user.id,
     email: user.email,
-    expiresAt: Date.now() + SESSION_DURATION
+    expiresAt: Date.now() + SESSION_DURATION,
+    mfaEnabled: user.mfaEnabled,
+    createdAt: user.createdAt,
+    lastLogin: user.lastLogin
   };
   
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -203,7 +251,7 @@ export const updateLastActivity = (): void => {
 };
 
 // Get current authenticated user
-export const getCurrentUser = (): { id: string; email: string } | null => {
+export const getCurrentUser = (): { id: string; email: string; mfaEnabled: boolean; createdAt: number; lastLogin?: number } | null => {
   if (!isAuthenticated()) {
     return null;
   }
@@ -218,7 +266,10 @@ export const getCurrentUser = (): { id: string; email: string } | null => {
   
   return {
     id: session.userId,
-    email: session.email
+    email: session.email,
+    mfaEnabled: session.mfaEnabled || false,
+    createdAt: session.createdAt || Date.now() - (30 * 24 * 60 * 60 * 1000), // Default to 30 days ago
+    lastLogin: session.lastLogin
   };
 };
 
@@ -231,14 +282,4 @@ export const logout = (): void => {
   }
   
   localStorage.removeItem(SESSION_KEY);
-};
-
-// Just adding this function to make TypeScript happy since it's used in the MFA flow
-const verifyTOTP = (secret: string, code: string): boolean => {
-  // For demo purposes, accept any 6-digit code for the default user
-  if (secret === DEFAULT_USER.mfaSecret) {
-    return code.length === 6 && /^\d+$/.test(code);
-  }
-  
-  return false;
 };
