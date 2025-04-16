@@ -7,6 +7,7 @@ import { FileDetail } from "@/components/file-detail";
 import { getFileById } from "@/data/files";
 import { useToast } from "@/hooks/use-toast";
 import { FilePreview } from "@/components/file-preview";
+import { decryptFile } from "@/utils/encryption";
 
 export default function FileDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +15,8 @@ export default function FileDetailsPage() {
   const { toast } = useToast();
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileObject, setFileObject] = useState<File | null>(null);
+  const [decryptedFile, setDecryptedFile] = useState<File | null>(null);
+  const [decrypting, setDecrypting] = useState(false);
   
   const file = id ? getFileById(id) : null;
   
@@ -37,9 +40,46 @@ export default function FileDetailsPage() {
         const blob = new Blob([ab], { type: contentType });
         const fileObj = new File([blob], file.name, { type: contentType });
         setFileObject(fileObj);
+        
+        // If the file is encrypted and we have encryption data, try to decrypt it
+        if (file.isEncrypted && file.encryptionData && !decryptedFile) {
+          handleDecrypt(fileObj, file.encryptionData.encryptionKey, file.encryptionData.iv);
+        }
       }
     }
   }, [file, id]);
+  
+  const handleDecrypt = async (fileToDecrypt: File, key: string, iv: string) => {
+    if (!fileToDecrypt) return;
+    
+    setDecrypting(true);
+    
+    try {
+      // For simplicity, extract IV from the key if it contains it
+      const parts = key.split('.');
+      let actualIv = iv;
+      let actualKey = key;
+      
+      if (parts.length > 1) {
+        // Last part is the IV
+        actualIv = parts[parts.length - 1];
+        // The rest is the key
+        actualKey = parts.slice(0, -1).join('.');
+      }
+      
+      const decrypted = await decryptFile(fileToDecrypt, actualKey, actualIv);
+      setDecryptedFile(decrypted);
+    } catch (error) {
+      console.error("Failed to decrypt file:", error);
+      toast({
+        title: "Decryption failed",
+        description: "Could not decrypt the file with the provided key",
+        variant: "destructive",
+      });
+    } finally {
+      setDecrypting(false);
+    }
+  };
   
   if (!file) {
     return (
@@ -70,11 +110,14 @@ export default function FileDetailsPage() {
   }
   
   const handleDownload = () => {
-    if (fileObject) {
-      const url = URL.createObjectURL(fileObject);
+    // If we have a decrypted version for encrypted files, download that
+    const fileToDownload = (file.isEncrypted && decryptedFile) ? decryptedFile : fileObject;
+    
+    if (fileToDownload) {
+      const url = URL.createObjectURL(fileToDownload);
       const a = document.createElement('a');
       a.href = url;
-      a.download = file.name;
+      a.download = fileToDownload.name;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -82,7 +125,7 @@ export default function FileDetailsPage() {
       
       toast({
         title: "Download started",
-        description: `${file.name} is being downloaded`,
+        description: `${fileToDownload.name} is being downloaded`,
       });
     } else {
       toast({
@@ -136,7 +179,42 @@ export default function FileDetailsPage() {
           onDelete={handleDelete}
         />
         
-        {fileObject && (
+        {/* Show decrypted file preview for encrypted files if available */}
+        {file.isEncrypted && decryptedFile ? (
+          <div>
+            <FilePreview 
+              file={decryptedFile} 
+              onDownload={handleDownload}
+            />
+            
+            {file.encryptionData && (
+              <div className="mt-6 bg-card border border-border/40 rounded-lg p-4 md:p-6">
+                <h3 className="text-lg font-medium mb-3">Decryption Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="text-sm text-muted-foreground">Encryption Key:</p>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 py-0 px-2"
+                        onClick={() => {
+                          navigator.clipboard.writeText(file.encryptionData.encryptionKey);
+                          toast({ description: "Encryption key copied to clipboard" });
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <p className="font-mono text-xs bg-secondary/40 p-2 rounded overflow-auto max-h-20">
+                      {file.encryptionData.encryptionKey}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : fileObject ? (
           <div>
             <FilePreview 
               file={fileObject} 
@@ -144,9 +222,9 @@ export default function FileDetailsPage() {
             />
             
             {file.isEncrypted && file.encryptionData && (
-              <div className="mt-6 bg-card border border-border/40 rounded-lg p-6">
-                <h3 className="text-lg font-medium mb-4">Decryption Information</h3>
-                <div className="space-y-4">
+              <div className="mt-6 bg-card border border-border/40 rounded-lg p-4 md:p-6">
+                <h3 className="text-lg font-medium mb-3">Decryption Information</h3>
+                <div className="space-y-3">
                   <div>
                     <p className="text-sm text-muted-foreground mb-1">Encryption Algorithm:</p>
                     <p className="font-mono text-sm bg-secondary/40 p-2 rounded">
@@ -173,37 +251,11 @@ export default function FileDetailsPage() {
                       {file.encryptionData.encryptionKey}
                     </p>
                   </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm text-muted-foreground">Initialization Vector (IV):</p>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 py-0 px-2"
-                        onClick={() => {
-                          navigator.clipboard.writeText(file.encryptionData.iv);
-                          toast({ description: "IV copied to clipboard" });
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                    <p className="font-mono text-xs bg-secondary/40 p-2 rounded overflow-auto max-h-20">
-                      {file.encryptionData.iv}
-                    </p>
-                  </div>
-                  
-                  <div className="pt-2 text-center">
-                    <p className="text-sm text-warning-foreground">
-                      You will need these details to decrypt the file later
-                    </p>
-                  </div>
                 </div>
               </div>
             )}
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

@@ -68,7 +68,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
           <img 
             src={previewUrl} 
             alt={file.name} 
-            className="max-w-full max-h-80 object-contain" 
+            className="max-w-full max-h-64 object-contain" 
           />
         </div>
       );
@@ -78,7 +78,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
       return (
         <iframe 
           src={previewUrl} 
-          className="w-full h-80 border border-border/40 rounded-md" 
+          className="w-full h-64 border border-border/40 rounded-md" 
           title={file.name}
         />
       );
@@ -90,7 +90,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
         file.type === 'application/json' ||
         file.type === 'text/javascript') {
       return (
-        <div className="w-full h-80 border border-border/40 rounded-md bg-secondary/20 p-4 overflow-auto">
+        <div className="w-full h-64 border border-border/40 rounded-md bg-secondary/20 p-4 overflow-auto">
           <pre className="text-xs font-mono">
             <iframe 
               src={previewUrl} 
@@ -115,24 +115,26 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
   };
   
   return (
-    <div className="file-preview bg-card rounded-lg border border-border/40 p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">File Preview</h3>
+    <div className="file-preview bg-card rounded-lg border border-border/40 p-4">
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-base font-medium">File Preview</h3>
         <div className="flex gap-2">
           {loading ? (
             <Button variant="outline" size="sm" disabled>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
               Loading
             </Button>
           ) : (
             <>
-              <Button variant="outline" size="sm" onClick={() => window.open(previewUrl || '', '_blank')}>
-                <Image className="h-4 w-4 mr-2" />
-                Open
-              </Button>
+              {previewUrl && (
+                <Button variant="outline" size="sm" onClick={() => window.open(previewUrl || '', '_blank')}>
+                  <Image className="h-4 w-4 mr-1" />
+                  Open
+                </Button>
+              )}
               {onDownload && (
                 <Button variant="outline" size="sm" onClick={onDownload}>
-                  <Download className="h-4 w-4 mr-2" />
+                  <Download className="h-4 w-4 mr-1" />
                   Download
                 </Button>
               )}
@@ -141,7 +143,7 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
         </div>
       </div>
       
-      <div className="preview-container min-h-64 flex items-center justify-center border border-border/30 rounded-md bg-secondary/20">
+      <div className="preview-container min-h-48 md:min-h-64 flex items-center justify-center border border-border/30 rounded-md bg-secondary/20">
         {renderPreview()}
       </div>
     </div>

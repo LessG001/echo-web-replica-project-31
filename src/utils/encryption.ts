@@ -78,9 +78,25 @@ export const decryptFile = async (
     ? encryptedFile.name.slice(0, -4) 
     : encryptedFile.name;
   
+  // Attempt to determine the original file type
+  let fileType = 'application/octet-stream';
+  
+  // A simple check for common file extensions
+  if (originalName.endsWith('.jpg') || originalName.endsWith('.jpeg')) {
+    fileType = 'image/jpeg';
+  } else if (originalName.endsWith('.png')) {
+    fileType = 'image/png';
+  } else if (originalName.endsWith('.pdf')) {
+    fileType = 'application/pdf';
+  } else if (originalName.endsWith('.txt')) {
+    fileType = 'text/plain';
+  } else if (originalName.endsWith('.docx')) {
+    fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  }
+  
   // Create a new file with decrypted data
   return new File([decryptedData], originalName, {
-    type: 'application/octet-stream'
+    type: fileType
   });
 };
 
