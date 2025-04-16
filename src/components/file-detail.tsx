@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { FileIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
@@ -15,12 +14,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-
-interface EncryptionData {
-  algorithm: string;
-  encryptionKey: string;
-  iv: string;
-}
+import { EncryptionData } from "@/types/file";
 
 interface FileDetailProps {
   file: {

@@ -1,6 +1,7 @@
 
 import { useState } from "react";
-import { FileCard, FileInfo } from "@/components/file-card";
+import { FileCard } from "@/components/file-card";
+import { FileInfo } from "@/types/file";
 
 interface FileGridProps {
   files: FileInfo[];

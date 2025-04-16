@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { FileGrid } from "@/components/file-grid";
 import { FileToolbar } from "@/components/file-toolbar";
-import { getFilteredFiles, FileInfo } from "@/utils/file-storage";
+import { getFilteredFiles } from "@/utils/file-storage";
+import { FileInfo } from "@/types/file";
 import { Button } from "@/components/ui/button";
 import { DecryptionModal } from "@/components/decryption-modal";
 import { toast } from "sonner";

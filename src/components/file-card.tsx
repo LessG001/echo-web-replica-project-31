@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Star, Download, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -7,19 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { downloadFile } from "@/utils/encryption";
-
-export interface FileInfo {
-  id: string;
-  name: string;
-  extension: string;
-  size: string;
-  tags: string[];
-  timestamp: string;
-  isFavorite?: boolean;
-  isShared?: boolean;
-  isEncrypted?: boolean;
-  type?: string;
-}
+import { FileInfo } from "@/types/file";
 
 interface FileCardProps {
   file: FileInfo;

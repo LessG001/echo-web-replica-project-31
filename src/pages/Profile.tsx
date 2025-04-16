@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import {
   getCurrentUser,
-  changePassword
+  changePassword,
+  User
 } from "@/utils/auth";
 import { logSecurity, LogCategory } from "@/utils/audit-logger";
 import {
@@ -21,23 +21,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { UserAvatar } from "@/components/user-avatar";
-import { Key, Shield, Settings, User, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Key, Shield, Settings, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 
-// Password strength checker
 const checkPasswordStrength = (password: string): number => {
   let score = 0;
   
-  // Length check
   if (password.length >= 8) score += 1;
   if (password.length >= 12) score += 1;
   
-  // Complexity checks
   if (/[A-Z]/.test(password)) score += 1;
   if (/[a-z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
   if (/[^A-Za-z0-9]/.test(password)) score += 1;
   
-  // Maximum score is 6
   return Math.min(score, 6);
 };
 
@@ -48,15 +44,13 @@ export default function ProfilePage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState(getCurrentUser());
+  const [user, setUser] = useState<User | null>(getCurrentUser());
   
   useEffect(() => {
-    // Update password strength when password changes
     setPasswordStrength(checkPasswordStrength(newPassword));
   }, [newPassword]);
   
   useEffect(() => {
-    // Check if user is logged in
     const currentUser = getCurrentUser();
     if (!currentUser) {
       navigate("/login");
@@ -81,7 +75,6 @@ export default function ProfilePage() {
     e.preventDefault();
     if (loading) return;
     
-    // Basic validation
     if (newPassword.length < 8) {
       toast.error("Password must be at least 8 characters long");
       return;
@@ -101,15 +94,12 @@ export default function ProfilePage() {
         return;
       }
       
-      // Change password
       const result = changePassword(user.id, currentPassword, newPassword);
       
       if (result.success) {
-        // Log password change
         logSecurity(LogCategory.AUTH, "Password changed", { userId: user.id });
         toast.success(result.message);
         
-        // Reset form
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
@@ -124,7 +114,6 @@ export default function ProfilePage() {
     }
   };
   
-  // Calculate user initials from email
   const userInitials = user?.email
     ? user.email.split('@')[0].slice(0, 2).toUpperCase()
     : "U";

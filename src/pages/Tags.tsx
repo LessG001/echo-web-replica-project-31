@@ -2,7 +2,8 @@
 import { useState, useEffect } from "react";
 import { FileGrid } from "@/components/file-grid";
 import { FileToolbar } from "@/components/file-toolbar";
-import { getFiles, FileInfo } from "@/utils/file-storage";
+import { getFiles } from "@/utils/file-storage";
+import { FileInfo } from "@/types/file";
 import { toast } from "sonner";
 import { isAuthenticated } from "@/utils/auth";
 import { useNavigate } from "react-router-dom";

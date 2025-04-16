@@ -1,27 +1,6 @@
 
 import { v4 as uuidv4 } from 'uuid';
-
-// Define file information interface
-export interface FileInfo {
-  id: string;
-  name: string;
-  extension: string;
-  size: number;
-  type?: string;
-  created: Date;
-  modified: Date;
-  createdBy?: string;
-  modifiedBy?: string;
-  isFavorite: boolean;
-  isShared: boolean;
-  isEncrypted: boolean;
-  tags: string[];
-  checksum?: string;
-  encryptionData?: {
-    algorithm: string;
-    iv: string;
-  };
-}
+import { FileInfo } from '@/types/file';
 
 // Helper function to generate a unique file ID
 export const generateFileId = (): string => {
@@ -187,7 +166,9 @@ export const getFilteredFiles = (
     } else if (sortBy === "date") {
       comparison = new Date(a.modified).getTime() - new Date(b.modified).getTime();
     } else if (sortBy === "size") {
-      comparison = a.size - b.size;
+      const sizeA = parseFloat(a.size);
+      const sizeB = parseFloat(b.size);
+      comparison = sizeA - sizeB;
     }
     
     return sortOrder === "asc" ? comparison : -comparison;

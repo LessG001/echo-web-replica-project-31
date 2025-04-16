@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 import { Header } from "@/components/header";
@@ -86,8 +85,8 @@ export default function AppLayout() {
         isFavorite: false,
         isShared: false,
         type: file.type || 'application/octet-stream',
-        created: now.toLocaleString(),
-        modified: now.toLocaleString(),
+        created: now.toISOString(),
+        modified: now.toISOString(),
         createdBy: currentUser?.email || "Unknown User",
         modifiedBy: currentUser?.email || "Unknown User",
         isEncrypted: encrypt,

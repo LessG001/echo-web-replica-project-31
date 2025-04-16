@@ -9,6 +9,7 @@ import { FilePreview } from "@/components/file-preview";
 import { decryptFile } from "@/utils/encryption";
 import { isAuthenticated } from "@/utils/auth";
 import { logInfo, LogCategory } from "@/utils/audit-logger";
+import { FileInfo, EncryptionData } from "@/types/file";
 
 export default function FileDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -22,20 +23,17 @@ export default function FileDetailsPage() {
   const file = id ? getFileById(id) : null;
   
   useEffect(() => {
-    // Check if user is authenticated
     if (!isAuthenticated()) {
       navigate("/login");
       return;
     }
     
-    // Try to load file content from localStorage
     if (file && id) {
       const storedFile = localStorage.getItem(`file_${id}`);
       if (storedFile) {
         setFileContent(storedFile);
         
         try {
-          // Convert data URL to file object
           const contentType = file.type || 'application/octet-stream';
           const byteString = atob(storedFile.split(',')[1]);
           const ab = new ArrayBuffer(byteString.length);
@@ -48,17 +46,13 @@ export default function FileDetailsPage() {
           const blob = new Blob([ab], { type: contentType });
           const fileObj = new File([blob], file.name, { type: contentType });
           
-          // Save encrypted file object
           if (file.isEncrypted) {
             setEncryptedFileObject(fileObj);
             
-            // Check if we have encryption data
             if (file.encryptionData) {
-              // Show toast notifying that the file is encrypted
               toast.info("This file is encrypted. You need the decryption key to view it.");
             }
           } else {
-            // For non-encrypted files, just set the file object
             setFileObject(fileObj);
           }
         } catch (error) {
@@ -69,7 +63,6 @@ export default function FileDetailsPage() {
         toast.error("File content not found");
       }
       
-      // Log file access
       logInfo(LogCategory.FILE, `Accessed file: ${file.name}`, {
         fileId: id,
         fileName: file.name
@@ -83,25 +76,21 @@ export default function FileDetailsPage() {
     setDecrypting(true);
     
     try {
-      // For simplicity, extract IV from the key if it contains it
       const parts = key.split('.');
       let actualIv = iv;
       let actualKey = key;
       
       if (parts.length > 1) {
-        // Last part is the IV
         actualIv = parts[parts.length - 1];
-        // The rest is the key
         actualKey = parts.slice(0, -1).join('.');
       }
       
       const decrypted = await decryptFile(fileToDecrypt, actualKey, actualIv);
       setDecryptedFile(decrypted);
-      setFileObject(decrypted); // Set decrypted file as the main file object for preview
+      setFileObject(decrypted);
       
       toast.success("File decrypted successfully");
       
-      // Log file decryption
       logInfo(LogCategory.SECURITY, `Decrypted file: ${file?.name}`, {
         fileId: id
       });
@@ -109,7 +98,6 @@ export default function FileDetailsPage() {
       console.error("Failed to decrypt file:", error);
       toast.error("Failed to decrypt file. Invalid key or corrupted file.");
       
-      // Log failed decryption attempt
       logInfo(LogCategory.SECURITY, `Failed to decrypt file: ${file?.name}`, {
         fileId: id,
         error: String(error)
@@ -148,7 +136,6 @@ export default function FileDetailsPage() {
   }
   
   const handleDownload = () => {
-    // If we have a decrypted version for encrypted files, download that
     const fileToDownload = decryptedFile || fileObject;
     
     if (fileToDownload) {
@@ -163,7 +150,6 @@ export default function FileDetailsPage() {
       
       toast.success(`${fileToDownload.name} is being downloaded`);
       
-      // Log file download
       logInfo(LogCategory.FILE, `Downloaded file: ${file.name}`, {
         fileId: id
       });
@@ -175,18 +161,15 @@ export default function FileDetailsPage() {
   const handleShare = () => {
     toast.info(`Share options for ${file.name} opened`);
     
-    // Log share attempt
     logInfo(LogCategory.FILE, `Attempted to share file: ${file.name}`, {
       fileId: id
     });
   };
   
   const handleDelete = () => {
-    // Delete file from storage
     if (id && deleteFile(id)) {
       toast.success(`${file.name} has been deleted`);
       
-      // Log file deletion
       logInfo(LogCategory.FILE, `Deleted file: ${file.name}`, {
         fileId: id
       });
@@ -197,7 +180,6 @@ export default function FileDetailsPage() {
     }
   };
   
-  // Handle decryption key submission
   const handleDecryptionKeySubmit = (key: string) => {
     if (!file.encryptionData || !encryptedFileObject) {
       toast.error("Missing encryption data or file");
@@ -207,20 +189,19 @@ export default function FileDetailsPage() {
     handleDecrypt(encryptedFileObject, key, file.encryptionData.iv);
   };
   
-  // For the component, we need to ensure we're passing a properly typed file object
   const fileDetailProps = file ? {
     id: file.id,
     name: file.name,
     extension: file.extension,
-    size: file.size,
-    type: file.type || 'application/octet-stream', // Provide default value for type
-    created: file.created,
-    modified: file.modified,
-    createdBy: file.createdBy,
-    modifiedBy: file.modifiedBy,
+    size: typeof file.size === 'number' ? formatFileSize(file.size) : file.size,
+    type: file.type || 'application/octet-stream',
+    created: typeof file.created === 'object' ? file.created.toISOString() : file.created,
+    modified: typeof file.modified === 'object' ? file.modified.toISOString() : file.modified,
+    createdBy: file.createdBy || 'Unknown',
+    modifiedBy: file.modifiedBy || 'Unknown',
     isEncrypted: !!file.isEncrypted,
     checksum: file.checksum,
-    encryptionData: file.encryptionData
+    encryptionData: file.encryptionData as EncryptionData | undefined
   } : null;
   
   return (
@@ -248,7 +229,6 @@ export default function FileDetailsPage() {
           />
         )}
         
-        {/* Show file preview with both decrypted and encrypted options */}
         {(fileObject || encryptedFileObject) ? (
           <div>
             <FilePreview 

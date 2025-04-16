@@ -10,7 +10,8 @@ import { NavIcons } from "@/components/ui/icons";
 import { Unlock } from "lucide-react";
 import { isAuthenticated } from "@/utils/auth";
 import { useNavigate } from "react-router-dom";
-import { getFiles, FileInfo } from "@/utils/file-storage";
+import { getFiles } from "@/utils/file-storage";
+import { FileInfo } from "@/types/file";
 import { toast } from "sonner";
 
 export default function Dashboard() {
