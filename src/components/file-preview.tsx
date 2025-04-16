@@ -3,14 +3,15 @@ import { useState, useEffect } from "react";
 import { Download, File, FileText, Image, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { generateFilePreview } from "@/utils/encryption";
+import { generateFilePreview, downloadFile } from "@/utils/encryption";
 
 interface FilePreviewProps {
   file: File;
+  encryptedFile?: File;
   onDownload?: () => void;
 }
 
-export function FilePreview({ file, onDownload }: FilePreviewProps) {
+export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -43,6 +44,20 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
       }
     };
   }, [file]);
+  
+  const handleDownloadOriginal = () => {
+    if (file) {
+      downloadFile(file);
+    } else if (onDownload) {
+      onDownload();
+    }
+  };
+  
+  const handleDownloadEncrypted = () => {
+    if (encryptedFile) {
+      downloadFile(encryptedFile);
+    }
+  };
   
   // Get appropriate preview component based on file type
   const renderPreview = () => {
@@ -131,10 +146,14 @@ export function FilePreview({ file, onDownload }: FilePreviewProps) {
                   Open
                 </Button>
               )}
-              {onDownload && (
-                <Button variant="outline" size="sm" onClick={onDownload}>
+              <Button variant="outline" size="sm" onClick={handleDownloadOriginal}>
+                <Download className="h-4 w-4 mr-1" />
+                Download
+              </Button>
+              {encryptedFile && (
+                <Button variant="secondary" size="sm" onClick={handleDownloadEncrypted}>
                   <Download className="h-4 w-4 mr-1" />
-                  Download
+                  Download Encrypted
                 </Button>
               )}
             </>

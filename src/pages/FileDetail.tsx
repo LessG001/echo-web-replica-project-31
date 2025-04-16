@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -15,6 +14,7 @@ export default function FileDetailsPage() {
   const { toast } = useToast();
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileObject, setFileObject] = useState<File | null>(null);
+  const [encryptedFileObject, setEncryptedFileObject] = useState<File | null>(null);
   const [decryptedFile, setDecryptedFile] = useState<File | null>(null);
   const [decrypting, setDecrypting] = useState(false);
   
@@ -39,7 +39,13 @@ export default function FileDetailsPage() {
         
         const blob = new Blob([ab], { type: contentType });
         const fileObj = new File([blob], file.name, { type: contentType });
-        setFileObject(fileObj);
+        
+        // Save both original (encrypted) and decrypted file
+        if (file.isEncrypted) {
+          setEncryptedFileObject(fileObj);
+        } else {
+          setFileObject(fileObj);
+        }
         
         // If the file is encrypted and we have encryption data, try to decrypt it
         if (file.isEncrypted && file.encryptionData && !decryptedFile) {
@@ -69,6 +75,9 @@ export default function FileDetailsPage() {
       
       const decrypted = await decryptFile(fileToDecrypt, actualKey, actualIv);
       setDecryptedFile(decrypted);
+      setFileObject(decrypted); // Set decrypted file as the main file object for preview
+      
+      console.log("File decrypted successfully:", decrypted);
     } catch (error) {
       console.error("Failed to decrypt file:", error);
       toast({
@@ -179,45 +188,12 @@ export default function FileDetailsPage() {
           onDelete={handleDelete}
         />
         
-        {/* Show decrypted file preview for encrypted files if available */}
-        {file.isEncrypted && decryptedFile ? (
+        {/* Show file preview with both decrypted and encrypted options */}
+        {fileObject ? (
           <div>
             <FilePreview 
-              file={decryptedFile} 
-              onDownload={handleDownload}
-            />
-            
-            {file.encryptionData && (
-              <div className="mt-6 bg-card border border-border/40 rounded-lg p-4 md:p-6">
-                <h3 className="text-lg font-medium mb-3">Decryption Information</h3>
-                <div className="space-y-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="text-sm text-muted-foreground">Encryption Key:</p>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 py-0 px-2"
-                        onClick={() => {
-                          navigator.clipboard.writeText(file.encryptionData.encryptionKey);
-                          toast({ description: "Encryption key copied to clipboard" });
-                        }}
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                    <p className="font-mono text-xs bg-secondary/40 p-2 rounded overflow-auto max-h-20">
-                      {file.encryptionData.encryptionKey}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : fileObject ? (
-          <div>
-            <FilePreview 
-              file={fileObject} 
+              file={fileObject}
+              encryptedFile={file.isEncrypted ? encryptedFileObject : undefined}
               onDownload={handleDownload}
             />
             
