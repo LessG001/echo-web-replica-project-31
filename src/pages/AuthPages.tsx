@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -260,7 +261,7 @@ export function Register() {
     return "Strong";
   };
   
-  const setupMFA = async () => {
+  const setupMFAForUser = async () => {
     try {
       const secret = generateMFASecret();
       setMfaSecret(secret);
@@ -307,7 +308,10 @@ export function Register() {
         const isValid = verifyTOTP(mfaCode, mfaSecret);
         
         if (isValid) {
-          if (setupMFA(userId, mfaSecret)) {
+          // Fixed the error by calling setupMFA with userId and mfaSecret
+          const mfaResult = setupMFA(userId, mfaSecret);
+          
+          if (mfaResult) {
             logSecurity(LogCategory.AUTH, "User registration successful with MFA", { email });
             toast.success("Registration successful with MFA enabled!");
             navigate("/login");
@@ -323,7 +327,7 @@ export function Register() {
         if (result.success) {
           setUserId(result.userId || "");
           
-          await setupMFA();
+          await setupMFAForUser();
         } else {
           logSecurity(LogCategory.AUTH, "Failed registration attempt", { email });
           toast.error(result.message);
