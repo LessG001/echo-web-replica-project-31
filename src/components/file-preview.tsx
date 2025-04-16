@@ -1,20 +1,32 @@
 
 import { useState, useEffect } from "react";
-import { Download, File, FileText, Image, RefreshCw } from "lucide-react";
+import { Download, File, FileText, Image, RefreshCw, Unlock, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { generateFilePreview, downloadFile } from "@/utils/encryption";
+import { toast } from "sonner";
 
 interface FilePreviewProps {
   file: File;
   encryptedFile?: File;
   onDownload?: () => void;
+  requiresDecryption?: boolean;
+  onDecrypt?: (key: string) => void;
 }
 
-export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProps) {
+export function FilePreview({ 
+  file, 
+  encryptedFile, 
+  onDownload,
+  requiresDecryption = false,
+  onDecrypt
+}: FilePreviewProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [decryptionKey, setDecryptionKey] = useState("");
+  const [decrypting, setDecrypting] = useState(false);
 
   useEffect(() => {
     const loadPreview = async () => {
@@ -24,9 +36,14 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
       try {
         if (!file) throw new Error("No file provided");
         
+        // If file requires decryption, don't try to generate preview
+        if (requiresDecryption) {
+          setLoading(false);
+          return;
+        }
+        
         const url = await generateFilePreview(file);
         setPreviewUrl(url);
-        console.log("Preview URL generated:", url);
       } catch (err) {
         console.error("Failed to generate preview:", err);
         setError(true);
@@ -43,12 +60,13 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
         URL.revokeObjectURL(previewUrl);
       }
     };
-  }, [file]);
+  }, [file, requiresDecryption]);
   
   const handleDownloadOriginal = () => {
-    if (file) {
+    if (file && !requiresDecryption) {
       // Always download the decrypted/original file when available
       downloadFile(file);
+      toast.success(`${file.name} is being downloaded`);
     } else if (onDownload) {
       onDownload();
     }
@@ -57,6 +75,21 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
   const handleDownloadEncrypted = () => {
     if (encryptedFile) {
       downloadFile(encryptedFile);
+      toast.success(`${encryptedFile.name} is being downloaded`);
+    }
+  };
+  
+  const handleDecrypt = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onDecrypt && decryptionKey.trim()) {
+      setDecrypting(true);
+      try {
+        onDecrypt(decryptionKey.trim());
+      } finally {
+        setDecrypting(false);
+      }
+    } else {
+      toast.error("Please enter a decryption key");
     }
   };
   
@@ -67,6 +100,47 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
         <div className="flex flex-col items-center justify-center h-full">
           <Skeleton className="w-full h-64" />
           <p className="text-muted-foreground mt-2">Loading preview...</p>
+        </div>
+      );
+    }
+    
+    if (requiresDecryption) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <Lock className="h-16 w-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">Encrypted Content</h3>
+          <p className="text-sm text-muted-foreground text-center mb-4">
+            This file is encrypted. Enter the decryption key to view its contents.
+          </p>
+          
+          <form onSubmit={handleDecrypt} className="w-full max-w-md">
+            <div className="flex">
+              <Input
+                value={decryptionKey}
+                onChange={(e) => setDecryptionKey(e.target.value)}
+                placeholder="Paste your decryption key here"
+                className="flex-1"
+                disabled={decrypting}
+              />
+              <Button
+                type="submit"
+                className="ml-2"
+                disabled={decrypting || !decryptionKey.trim()}
+              >
+                {decrypting ? (
+                  <>
+                    <Unlock className="h-4 w-4 mr-2 animate-spin" />
+                    Decrypting...
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="h-4 w-4 mr-2" />
+                    Decrypt
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
         </div>
       );
     }
@@ -141,15 +215,20 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
             </Button>
           ) : (
             <>
-              {previewUrl && (
+              {previewUrl && !requiresDecryption && (
                 <Button variant="outline" size="sm" onClick={() => window.open(previewUrl, '_blank')}>
                   <Image className="h-4 w-4 mr-1" />
                   Open
                 </Button>
               )}
-              <Button variant="outline" size="sm" onClick={handleDownloadOriginal}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleDownloadOriginal}
+                disabled={requiresDecryption && !onDownload}
+              >
                 <Download className="h-4 w-4 mr-1" />
-                Download Decrypted
+                Download {requiresDecryption ? "File" : "Decrypted"}
               </Button>
               {encryptedFile && (
                 <Button variant="secondary" size="sm" onClick={handleDownloadEncrypted}>

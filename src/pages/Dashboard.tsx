@@ -1,110 +1,71 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { FileGrid } from "@/components/file-grid";
 import { FileToolbar } from "@/components/file-toolbar";
 import { UploadModal, UploadFileData } from "@/components/upload-modal";
 import { DecryptionModal } from "@/components/decryption-modal";
-import { mockFiles } from "@/data/files";
 import { Button } from "@/components/ui/button";
 import { NavIcons } from "@/components/ui/icons";
-import { calculateChecksum } from "@/utils/encryption";
 import { Unlock } from "lucide-react";
+import { isAuthenticated } from "@/utils/auth";
+import { useNavigate } from "react-router-dom";
+import { getAllFiles, FileInfo } from "@/utils/file-storage";
+import { toast } from "sonner";
 
 export default function Dashboard() {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [isDecryptModalOpen, setIsDecryptModalOpen] = useState(false);
-  const [files, setFiles] = useState(mockFiles);
+  const [files, setFiles] = useState<FileInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentView, setCurrentView] = useState<"grid" | "list">("grid");
-  const { toast } = useToast();
+  const navigate = useNavigate();
   
-  const filteredFiles = searchQuery
-    ? files.filter(file => 
-        file.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        file.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : files;
-  
-  const handleUpload = async (fileData: UploadFileData) => {
-    const { file, encrypt, encryptionData } = fileData;
-    
-    // Create file tags based on type and encryption status
-    const fileType = file.type.split('/')[0] || 'document';
-    const tags = [fileType];
-    if (encrypt) tags.push('encrypted');
-    
-    // Generate additional file metadata
-    const now = new Date();
-    const checksum = encryptionData?.checksum || await calculateChecksum(file);
-    
-    const newFile = {
-      id: `file-${Date.now()}`,
-      name: file.name,
-      extension: file.name.split('.').pop() || '',
-      size: `${(file.size / 1024).toFixed(2)} KB`,
-      tags: tags,
-      timestamp: "less than a minute ago",
-      isFavorite: false,
-      isShared: false,
-      type: file.type || 'application/octet-stream',
-      created: now.toLocaleString(),
-      modified: now.toLocaleString(),
-      createdBy: "Current User",
-      modifiedBy: "Current User",
-      isEncrypted: encrypt,
-      checksum: checksum,
-      // Store encryption data in file object for later decryption
-      encryptionData: encrypt && encryptionData ? {
-        algorithm: encryptionData.algorithm,
-        encryptionKey: encryptionData.encryptionKey,
-        iv: encryptionData.iv
-      } : undefined
-    };
-    
-    // Save actual file in localStorage for demo purposes
-    try {
-      const fileReader = new FileReader();
-      fileReader.onload = function(e) {
-        const base64Content = e.target?.result;
-        localStorage.setItem(`file_${newFile.id}`, base64Content as string);
-      };
-      fileReader.readAsDataURL(file);
-    } catch (err) {
-      console.error("Failed to store file:", err);
+  useEffect(() => {
+    // Redirect if not authenticated
+    if (!isAuthenticated()) {
+      navigate("/login");
+      return;
     }
     
-    setFiles([newFile, ...files]);
-    toast({
-      title: "File uploaded successfully",
-      description: `${file.name} has been uploaded ${encrypt ? 'with encryption' : ''}`,
-    });
+    // Load files
+    loadFiles();
+  }, [navigate]);
+  
+  const loadFiles = () => {
+    // Get all files
+    const allFiles = getAllFiles();
+    setFiles(allFiles);
   };
   
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+    if (!query) {
+      loadFiles();
+      return;
+    }
+    
+    // Filter files by query
+    const filteredFiles = getAllFiles().filter(file => 
+      file.name.toLowerCase().includes(query.toLowerCase()) ||
+      file.tags.some(tag => tag.toLowerCase().includes(query.toLowerCase()))
+    );
+    setFiles(filteredFiles);
   };
   
   const handleFilter = () => {
-    toast({
-      title: "Filter applied",
-      description: "Files have been filtered",
-    });
+    toast.info("Filter applied");
   };
   
   const handleSort = () => {
     const sortedFiles = [...files].sort((a, b) => a.name.localeCompare(b.name));
     setFiles(sortedFiles);
-    toast({
-      title: "Files sorted",
-      description: "Files have been sorted alphabetically",
-    });
+    toast.info("Files sorted alphabetically");
   };
   
   const handleViewChange = (view: "grid" | "list") => {
     setCurrentView(view);
-    toast({
-      description: `View changed to ${view} view`,
-    });
+    toast.info(`View changed to ${view} view`);
   };
   
   return (
@@ -134,12 +95,37 @@ export default function Dashboard() {
         currentView={currentView}
       />
       
-      <FileGrid files={filteredFiles} />
+      {files.length === 0 ? (
+        <div className="text-center py-12 bg-card border border-border/40 rounded-lg">
+          <h3 className="text-lg font-medium mb-2">No files found</h3>
+          {searchQuery ? (
+            <p className="text-muted-foreground">
+              No files match your search criteria.
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                You haven't uploaded any files yet.
+              </p>
+              <Button onClick={() => setIsUploadModalOpen(true)}>
+                <NavIcons.Upload className="h-4 w-4 mr-2" />
+                Upload File
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <FileGrid files={files} />
+      )}
       
       <UploadModal 
         isOpen={isUploadModalOpen} 
         onClose={() => setIsUploadModalOpen(false)}
-        onUpload={handleUpload}
+        onUpload={() => {
+          // Reload files after upload
+          loadFiles();
+          setIsUploadModalOpen(false);
+        }}
       />
       
       <DecryptionModal

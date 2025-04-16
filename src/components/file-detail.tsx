@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { FileIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
-import { NavIcons } from "@/components/ui/icons";
-import { Lock, Download, Share2, Trash2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { Lock, Unlock, Download, Share2, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,18 +40,34 @@ interface FileDetailProps {
   onDownload: () => void;
   onShare: () => void;
   onDelete: () => void;
+  onDecrypt?: (key: string) => void;
+  decrypting?: boolean;
 }
 
-export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailProps) {
+export function FileDetail({ 
+  file, 
+  onDownload, 
+  onShare, 
+  onDelete, 
+  onDecrypt,
+  decrypting = false
+}: FileDetailProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const { toast } = useToast();
+  const [decryptionKey, setDecryptionKey] = useState("");
   
   const handleCopyKey = () => {
     if (file.encryptionData) {
       navigator.clipboard.writeText(file.encryptionData.encryptionKey);
-      toast({
-        description: "Encryption key copied to clipboard",
-      });
+      toast.success("Encryption key copied to clipboard");
+    }
+  };
+  
+  const handleDecrypt = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (onDecrypt && decryptionKey.trim()) {
+      onDecrypt(decryptionKey.trim());
+    } else {
+      toast.error("Please enter a decryption key");
     }
   };
   
@@ -141,41 +157,76 @@ export function FileDetail({ file, onDownload, onShare, onDelete }: FileDetailPr
                 <Lock className="h-5 w-5 text-primary mr-3" />
                 <div>
                   <p className="font-medium">This file is encrypted</p>
-                  <p className="text-sm text-muted-foreground">Only authorized users can view the contents</p>
+                  <p className="text-sm text-muted-foreground">Enter decryption key to view contents</p>
                 </div>
               </div>
             )}
             
-            {file.isEncrypted && file.encryptionData && (
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Encryption Algorithm:</p>
-                  <p className="font-mono text-sm bg-secondary/40 p-2 rounded">{file.encryptionData.algorithm}</p>
-                </div>
-                
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="text-sm text-muted-foreground">Encryption Key:</p>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-6 py-0 px-2"
-                      onClick={handleCopyKey}
+            {onDecrypt && (
+              <form onSubmit={handleDecrypt} className="mt-4">
+                <div className="space-y-2">
+                  <label htmlFor="decryption-key" className="text-sm font-medium">
+                    Decryption Key
+                  </label>
+                  <div className="flex">
+                    <Input
+                      id="decryption-key"
+                      value={decryptionKey}
+                      onChange={(e) => setDecryptionKey(e.target.value)}
+                      placeholder="Paste your decryption key here"
+                      className="flex-1"
+                      disabled={decrypting}
+                    />
+                    <Button
+                      type="submit"
+                      className="ml-2"
+                      disabled={decrypting || !decryptionKey.trim()}
                     >
-                      Copy
+                      {decrypting ? (
+                        <>
+                          <Unlock className="h-4 w-4 mr-2 animate-spin" />
+                          Decrypting...
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="h-4 w-4 mr-2" />
+                          Decrypt
+                        </>
+                      )}
                     </Button>
                   </div>
-                  <p className="font-mono text-xs bg-secondary/40 p-2 rounded overflow-auto max-h-20">
-                    {file.encryptionData.encryptionKey}
-                  </p>
                 </div>
+              </form>
+            )}
+            
+            {file.encryptionData && file.encryptionData.encryptionKey && (
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm text-muted-foreground">Encryption Key:</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-6 py-0 px-2"
+                    onClick={handleCopyKey}
+                  >
+                    Copy
+                  </Button>
+                </div>
+                <p className="font-mono text-xs bg-secondary/40 p-2 rounded overflow-auto max-h-20 break-all">
+                  {file.encryptionData.encryptionKey}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 italic">
+                  Save this key securely - it will only be displayed once
+                </p>
               </div>
             )}
             
             {file.checksum && (
               <div className="mt-4">
-                <p className="text-sm text-muted-foreground mb-1">Checksum (SHA-256):</p>
-                <p className="text-xs font-mono bg-secondary/40 p-2 rounded overflow-auto">{file.checksum}</p>
+                <p className="text-sm text-muted-foreground mb-1">File Checksum (SHA-256):</p>
+                <p className="text-xs font-mono bg-secondary/40 p-2 rounded overflow-auto break-all">
+                  {file.checksum}
+                </p>
               </div>
             )}
           </div>

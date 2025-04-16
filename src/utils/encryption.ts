@@ -1,50 +1,76 @@
 
-/**
- * Encryption and decryption utilities
- */
+import CryptoJS from 'crypto-js';
 
 /**
- * Encrypts a file using AES algorithm
+ * Enhanced encryption and decryption utilities
+ */
+
+interface EncryptionResult {
+  encryptedFile: File;
+  algorithm: string;
+  encryptionKey: string;
+  iv: string;
+  checksum: string;
+}
+
+interface DecryptionResult {
+  success: boolean;
+  file?: File;
+  error?: string;
+}
+
+/**
+ * Encrypts a file using AES-256 algorithm
  * @param file File to encrypt
  * @returns Promise with encrypted file and metadata
  */
-export const encryptFile = async (file: File): Promise<{ 
-  encryptedFile: File, 
-  algorithm: string, 
-  encryptionKey: string, 
-  iv: string 
-}> => {
-  // Convert file to array buffer
-  const fileBuffer = await file.arrayBuffer();
-  const fileData = new Uint8Array(fileBuffer);
-  
-  // Generate encryption key and IV
-  const key = await generateEncryptionKey();
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  
-  // Encrypt the file
-  const encryptedData = await encryptData(fileData, key, iv);
-  
-  // Create a new file with encrypted data
-  const encryptedFile = new File([encryptedData], `${file.name}.enc`, {
-    type: 'application/octet-stream'
-  });
-  
-  // Export key for storage
-  const exportedKey = await exportKey(key);
-  
-  const keyBase64 = arrayBufferToBase64(exportedKey);
-  const ivBase64 = arrayBufferToBase64(iv);
-  
-  // Combine the key and IV into a single string with a separator
-  const combinedKey = `${keyBase64}.${ivBase64}`;
-  
-  return {
-    encryptedFile,
-    algorithm: 'AES-GCM',
-    encryptionKey: combinedKey,
-    iv: ivBase64
-  };
+export const encryptFile = async (file: File): Promise<EncryptionResult> => {
+  try {
+    // Convert file to array buffer
+    const fileBuffer = await file.arrayBuffer();
+    const fileData = new Uint8Array(fileBuffer);
+    const fileString = arrayBufferToString(fileData);
+    
+    // Generate random encryption key and IV
+    const keyBytes = CryptoJS.lib.WordArray.random(32); // 256 bits for AES-256
+    const ivBytes = CryptoJS.lib.WordArray.random(16); // 128 bits for IV
+    
+    // Convert to string for storage
+    const key = CryptoJS.enc.Base64.stringify(keyBytes);
+    const iv = CryptoJS.enc.Base64.stringify(ivBytes);
+    
+    // Encrypt the file
+    const encrypted = CryptoJS.AES.encrypt(fileString, keyBytes, { 
+      iv: ivBytes, 
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    
+    const encryptedString = encrypted.toString();
+    const encryptedData = stringToUint8Array(encryptedString);
+    
+    // Create a new file with encrypted data
+    const encryptedFile = new File([encryptedData], `${file.name}.enc`, {
+      type: 'application/octet-stream'
+    });
+    
+    // Calculate checksum of original file
+    const checksum = await calculateChecksum(file);
+    
+    // Combine key and IV with a separator for easier storage
+    const combinedKey = `${key}.${iv}`;
+    
+    return {
+      encryptedFile,
+      algorithm: 'AES-256-CBC',
+      encryptionKey: combinedKey,
+      iv,
+      checksum
+    };
+  } catch (error) {
+    console.error('Encryption failed:', error);
+    throw new Error('Failed to encrypt file');
+  }
 };
 
 /**
@@ -59,171 +85,191 @@ export const decryptFile = async (
   keyString: string, 
   ivString: string
 ): Promise<File> => {
-  // Convert file to array buffer
-  const fileBuffer = await encryptedFile.arrayBuffer();
-  const encryptedData = new Uint8Array(fileBuffer);
-  
-  // Convert key and IV from base64
-  const keyBuffer = base64ToArrayBuffer(keyString);
-  const iv = base64ToArrayBuffer(ivString);
-  
-  // Import the key
-  const key = await importKey(keyBuffer);
-  
-  // Decrypt the data
-  const decryptedData = await decryptData(encryptedData, key, new Uint8Array(iv));
-  
-  // Create original filename (remove .enc extension if present)
-  const originalName = encryptedFile.name.endsWith('.enc') 
-    ? encryptedFile.name.slice(0, -4) 
-    : encryptedFile.name;
-  
-  // Attempt to determine the original file type
-  let fileType = 'application/octet-stream';
-  
-  // A simple check for common file extensions
-  if (originalName.endsWith('.jpg') || originalName.endsWith('.jpeg')) {
-    fileType = 'image/jpeg';
-  } else if (originalName.endsWith('.png')) {
-    fileType = 'image/png';
-  } else if (originalName.endsWith('.pdf')) {
-    fileType = 'application/pdf';
-  } else if (originalName.endsWith('.txt')) {
-    fileType = 'text/plain';
-  } else if (originalName.endsWith('.docx')) {
-    fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  try {
+    // Convert file to array buffer
+    const fileBuffer = await encryptedFile.arrayBuffer();
+    const encryptedData = new Uint8Array(fileBuffer);
+    const encryptedString = arrayBufferToString(encryptedData);
+    
+    // Parse key and IV
+    const keyBytes = CryptoJS.enc.Base64.parse(keyString);
+    const ivBytes = CryptoJS.enc.Base64.parse(ivString);
+    
+    // Decrypt the data
+    const decrypted = CryptoJS.AES.decrypt(encryptedString, keyBytes, {
+      iv: ivBytes,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7
+    });
+    
+    const decryptedString = decrypted.toString(CryptoJS.enc.Utf8);
+    const decryptedData = stringToUint8Array(decryptedString);
+    
+    // Create original filename (remove .enc extension if present)
+    const originalName = encryptedFile.name.endsWith('.enc') 
+      ? encryptedFile.name.slice(0, -4) 
+      : encryptedFile.name;
+    
+    // Attempt to determine the original file type
+    let fileType = 'application/octet-stream';
+    
+    // A simple check for common file extensions
+    if (originalName.endsWith('.jpg') || originalName.endsWith('.jpeg')) {
+      fileType = 'image/jpeg';
+    } else if (originalName.endsWith('.png')) {
+      fileType = 'image/png';
+    } else if (originalName.endsWith('.pdf')) {
+      fileType = 'application/pdf';
+    } else if (originalName.endsWith('.txt')) {
+      fileType = 'text/plain';
+    } else if (originalName.endsWith('.docx')) {
+      fileType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+    
+    // Create a new file with decrypted data
+    return new File([decryptedData], originalName, {
+      type: fileType
+    });
+  } catch (error) {
+    console.error('Decryption failed:', error);
+    throw new Error('Failed to decrypt file. Invalid key or corrupted file.');
   }
-  
-  // Create a new file with decrypted data
-  return new File([decryptedData], originalName, {
-    type: fileType
-  });
-};
-
-// Helper functions
-const generateEncryptionKey = async () => {
-  return await crypto.subtle.generateKey(
-    {
-      name: 'AES-GCM',
-      length: 256
-    },
-    true,
-    ['encrypt', 'decrypt']
-  );
-};
-
-const encryptData = async (data: Uint8Array, key: CryptoKey, iv: Uint8Array) => {
-  const encryptedBuffer = await crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv
-    },
-    key,
-    data
-  );
-  
-  return new Uint8Array(encryptedBuffer);
-};
-
-const decryptData = async (data: Uint8Array, key: CryptoKey, iv: Uint8Array) => {
-  const decryptedBuffer = await crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv
-    },
-    key,
-    data
-  );
-  
-  return new Uint8Array(decryptedBuffer);
-};
-
-const exportKey = async (key: CryptoKey) => {
-  return await crypto.subtle.exportKey('raw', key);
-};
-
-const importKey = async (keyBuffer: ArrayBuffer) => {
-  return await crypto.subtle.importKey(
-    'raw',
-    keyBuffer,
-    {
-      name: 'AES-GCM',
-      length: 256
-    },
-    false,
-    ['decrypt']
-  );
-};
-
-const arrayBufferToBase64 = (buffer: ArrayBuffer) => {
-  const bytes = new Uint8Array(buffer);
-  const binaryString = bytes.reduce((str, byte) => str + String.fromCharCode(byte), '');
-  return window.btoa(binaryString);
-};
-
-const base64ToArrayBuffer = (base64: string) => {
-  const binaryString = window.atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes.buffer;
 };
 
 /**
- * Generate a file preview URL
- * @param file File to preview
- * @returns Promise with preview URL
- */
-export const generateFilePreview = async (file: File): Promise<string> => {
-  // Handle different file types
-  if (file.type.startsWith('image/')) {
-    return URL.createObjectURL(file);
-  }
-  
-  if (file.type === 'application/pdf') {
-    return URL.createObjectURL(file);
-  }
-  
-  // For text files, read and return content
-  if (file.type === 'text/plain' || 
-      file.type === 'text/html' || 
-      file.type === 'text/css' || 
-      file.type === 'application/json' ||
-      file.type === 'text/javascript') {
-    const text = await file.text();
-    const blob = new Blob([text], { type: file.type });
-    return URL.createObjectURL(blob);
-  }
-  
-  // Default: just return object URL
-  return URL.createObjectURL(file);
-};
-
-/**
- * Calculate file checksum
+ * Calculate SHA-256 checksum of a file
  * @param file File to calculate checksum for
  * @returns Promise with checksum string
  */
 export const calculateChecksum = async (file: File): Promise<string> => {
-  const buffer = await file.arrayBuffer();
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  try {
+    const buffer = await file.arrayBuffer();
+    const data = new Uint8Array(buffer);
+    const wordArray = arrayBufferToWordArray(data);
+    const hash = CryptoJS.SHA256(wordArray);
+    return hash.toString(CryptoJS.enc.Hex);
+  } catch (error) {
+    console.error('Checksum calculation failed:', error);
+    throw new Error('Failed to calculate file checksum');
+  }
+};
+
+/**
+ * Generate a file preview
+ * @param file File to preview
+ * @returns Promise with preview URL or content
+ */
+export const generateFilePreview = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    // For images, create an object URL
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      resolve(url);
+      return;
+    }
+    
+    // For PDFs, also create an object URL
+    if (file.type === 'application/pdf') {
+      const url = URL.createObjectURL(file);
+      resolve(url);
+      return;
+    }
+    
+    // For text files, read the content
+    if (file.type === 'text/plain' || 
+        file.type === 'text/html' || 
+        file.type === 'text/css' || 
+        file.type === 'application/json' ||
+        file.type === 'text/javascript') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        resolve(e.target?.result as string);
+      };
+      reader.onerror = (e) => {
+        reject(new Error('Failed to read file'));
+      };
+      reader.readAsText(file);
+      return;
+    }
+    
+    // For other file types, just return the file name and type
+    resolve(`No preview available for ${file.name} (${file.type})`);
+  });
 };
 
 /**
  * Download a file
  * @param file File to download
- * @param filename Optional name for the downloaded file
  */
-export const downloadFile = (file: File, filename?: string) => {
+export const downloadFile = (file: File): void => {
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url;
-  a.download = filename || file.name;
+  a.download = file.name;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+};
+
+// Helper function to convert ArrayBuffer to WordArray (for CryptoJS)
+function arrayBufferToWordArray(ab: ArrayBuffer | Uint8Array): CryptoJS.lib.WordArray {
+  const i8a = new Uint8Array(ab);
+  const a = [];
+  for (let i = 0; i < i8a.length; i += 4) {
+    a.push(
+      (i8a[i] << 24) |
+      (i8a[i + 1] << 16) |
+      (i8a[i + 2] << 8) |
+      i8a[i + 3]
+    );
+  }
+  return CryptoJS.lib.WordArray.create(a, i8a.length);
+}
+
+// Helper function to convert ArrayBuffer to string
+function arrayBufferToString(buffer: ArrayBuffer | Uint8Array): string {
+  const uint8Array = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let str = '';
+  for (let i = 0; i < uint8Array.length; i++) {
+    str += String.fromCharCode(uint8Array[i]);
+  }
+  return str;
+}
+
+// Helper function to convert string to Uint8Array
+function stringToUint8Array(str: string): Uint8Array {
+  const arr = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) {
+    arr[i] = str.charCodeAt(i);
+  }
+  return arr;
+}
+
+// Helper function to convert base64 to ArrayBuffer
+function base64ToArrayBuffer(base64: string): ArrayBuffer {
+  const binaryString = atob(base64);
+  const bytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+// Helper function to convert ArrayBuffer to base64
+function arrayBufferToBase64(buffer: ArrayBuffer | Uint8Array): string {
+  const uint8Array = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < uint8Array.byteLength; i++) {
+    binary += String.fromCharCode(uint8Array[i]);
+  }
+  return btoa(binary);
+}
+
+// Export types and helper functions
+export type { EncryptionResult, DecryptionResult };
+export { 
+  arrayBufferToBase64,
+  base64ToArrayBuffer,
+  arrayBufferToWordArray
 };

@@ -1,6 +1,6 @@
 
 import { NavLink } from "react-router-dom";
-import { Search, Menu } from "lucide-react";
+import { Search, Menu, LogOut, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +8,13 @@ import { UserAvatar } from "@/components/user-avatar";
 import { Logo } from "@/components/logo";
 import { useMobileContext } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/theme-toggle";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   user?: {
@@ -18,9 +25,10 @@ interface HeaderProps {
   };
   onLoginClick?: () => void;
   onGetStartedClick?: () => void;
+  onLogout?: () => void;
 }
 
-export function Header({ user, onLoginClick, onGetStartedClick }: HeaderProps) {
+export function Header({ user, onLoginClick, onGetStartedClick, onLogout }: HeaderProps) {
   const { toggleSidebar } = useMobileContext();
   
   return (
@@ -77,15 +85,58 @@ export function Header({ user, onLoginClick, onGetStartedClick }: HeaderProps) {
             </NavLink>
           </Button>
           
+          <NavLink to="/audit-logs" className="text-sm">
+            <Button variant="ghost" size="sm">Audit Logs</Button>
+          </NavLink>
+          
           {user ? (
-            <UserAvatar
-              user={{ 
-                name: user.name,
-                image: user.image,
-                initials: user.initials || "U"
-              }}
-              className="h-8 w-8 border border-border/40"
-            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <UserAvatar
+                    user={{ 
+                      name: user.name,
+                      image: user.image,
+                      initials: user.initials || "U"
+                    }}
+                    className="h-8 w-8 border border-border/40"
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <div className="flex items-center justify-start gap-2 p-2">
+                  <div className="flex flex-col space-y-1 leading-none">
+                    {user.name && <p className="font-medium">{user.name}</p>}
+                    {user.email && (
+                      <p className="w-[200px] truncate text-sm text-muted-foreground">
+                        {user.email}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <NavLink to="/profile" className="cursor-pointer flex w-full items-center">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </NavLink>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <NavLink to="/settings" className="cursor-pointer flex w-full items-center">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </NavLink>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="cursor-pointer text-red-500 focus:text-red-500"
+                  onClick={onLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Log out</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <>
               {onLoginClick && (

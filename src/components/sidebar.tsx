@@ -7,25 +7,22 @@ import { Button } from "@/components/ui/button";
 import { NavIcons } from "@/components/ui/icons";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import { Unlock } from "lucide-react";
 
 interface SidebarProps {
   storageUsed: number;
   storageTotal: number;
   onUploadClick: () => void;
+  onDecryptClick: () => void;
 }
 
-export function Sidebar({ storageUsed, storageTotal, onUploadClick }: SidebarProps) {
+export function Sidebar({ storageUsed, storageTotal, onUploadClick, onDecryptClick }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { toast } = useToast();
   
   const handleNavClick = (path: string, label: string) => {
-    if (path !== "/dashboard") {
-      toast({
-        description: `Navigated to ${label}`,
-      });
-    }
     navigate(path);
   };
   
@@ -33,13 +30,24 @@ export function Sidebar({ storageUsed, storageTotal, onUploadClick }: SidebarPro
     <div className="w-60 h-screen border-r border-border/40 flex flex-col p-4">
       <Logo className="mb-8 px-3" />
       
-      <Button 
-        onClick={onUploadClick}
-        className="w-full mb-6"
-      >
-        <NavIcons.Upload className="h-4 w-4 mr-2" />
-        Upload
-      </Button>
+      <div className="space-y-2 mb-6">
+        <Button 
+          onClick={onUploadClick}
+          className="w-full"
+        >
+          <NavIcons.Upload className="h-4 w-4 mr-2" />
+          Upload
+        </Button>
+        
+        <Button 
+          variant="outline"
+          onClick={onDecryptClick}
+          className="w-full"
+        >
+          <Unlock className="h-4 w-4 mr-2" />
+          Decrypt File
+        </Button>
+      </div>
       
       <div className="space-y-1 mb-6">
         <button 
@@ -88,6 +96,26 @@ export function Sidebar({ storageUsed, storageTotal, onUploadClick }: SidebarPro
         >
           <NavIcons.Tags className="h-5 w-5" />
           <span>Tags</span>
+        </button>
+      </div>
+      
+      <div className="space-y-1 mb-6">
+        <h3 className="px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          Security
+        </h3>
+        <button 
+          className={`nav-item ${currentPath === "/audit-logs" ? "active" : ""}`}
+          onClick={() => handleNavClick("/audit-logs", "Audit Logs")}
+        >
+          <NavIcons.Audit className="h-5 w-5" />
+          <span>Audit Logs</span>
+        </button>
+        <button 
+          className={`nav-item ${currentPath === "/profile" ? "active" : ""}`}
+          onClick={() => handleNavClick("/profile", "Profile")}
+        >
+          <NavIcons.User className="h-5 w-5" />
+          <span>Profile</span>
         </button>
       </div>
       
