@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -40,16 +41,16 @@ export default function FileDetailsPage() {
         const blob = new Blob([ab], { type: contentType });
         const fileObj = new File([blob], file.name, { type: contentType });
         
-        // Save both original (encrypted) and decrypted file
+        // Save encrypted file object
         if (file.isEncrypted) {
           setEncryptedFileObject(fileObj);
+          // Automatically try to decrypt if we have encryption data
+          if (file.encryptionData) {
+            handleDecrypt(fileObj, file.encryptionData.encryptionKey, file.encryptionData.iv);
+          }
         } else {
+          // For non-encrypted files, just set the file object
           setFileObject(fileObj);
-        }
-        
-        // If the file is encrypted and we have encryption data, try to decrypt it
-        if (file.isEncrypted && file.encryptionData && !decryptedFile) {
-          handleDecrypt(fileObj, file.encryptionData.encryptionKey, file.encryptionData.iv);
         }
       }
     }
@@ -73,6 +74,7 @@ export default function FileDetailsPage() {
         actualKey = parts.slice(0, -1).join('.');
       }
       
+      console.log("Decrypting with key:", actualKey, "and IV:", actualIv);
       const decrypted = await decryptFile(fileToDecrypt, actualKey, actualIv);
       setDecryptedFile(decrypted);
       setFileObject(decrypted); // Set decrypted file as the main file object for preview
@@ -120,7 +122,7 @@ export default function FileDetailsPage() {
   
   const handleDownload = () => {
     // If we have a decrypted version for encrypted files, download that
-    const fileToDownload = (file.isEncrypted && decryptedFile) ? decryptedFile : fileObject;
+    const fileToDownload = decryptedFile || fileObject;
     
     if (fileToDownload) {
       const url = URL.createObjectURL(fileToDownload);
@@ -189,10 +191,10 @@ export default function FileDetailsPage() {
         />
         
         {/* Show file preview with both decrypted and encrypted options */}
-        {fileObject ? (
+        {(fileObject || encryptedFileObject) ? (
           <div>
             <FilePreview 
-              file={fileObject}
+              file={fileObject || decryptedFile || encryptedFileObject}
               encryptedFile={file.isEncrypted ? encryptedFileObject : undefined}
               onDownload={handleDownload}
             />

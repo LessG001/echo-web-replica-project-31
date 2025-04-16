@@ -47,6 +47,7 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
   
   const handleDownloadOriginal = () => {
     if (file) {
+      // Always download the decrypted/original file when available
       downloadFile(file);
     } else if (onDownload) {
       onDownload();
@@ -148,7 +149,7 @@ export function FilePreview({ file, encryptedFile, onDownload }: FilePreviewProp
               )}
               <Button variant="outline" size="sm" onClick={handleDownloadOriginal}>
                 <Download className="h-4 w-4 mr-1" />
-                Download
+                Download Decrypted
               </Button>
               {encryptedFile && (
                 <Button variant="secondary" size="sm" onClick={handleDownloadEncrypted}>
