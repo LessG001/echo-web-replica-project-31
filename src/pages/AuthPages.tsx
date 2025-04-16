@@ -19,25 +19,20 @@ import { generateMFASecret, generateMFAQRCode, verifyTOTP } from "@/utils/mfa";
 import { logSecurity, LogCategory } from "@/utils/audit-logger";
 import { Key, AlertCircle, CheckCircle2 } from "lucide-react";
 
-// Password strength checker
 const checkPasswordStrength = (password: string): number => {
   let score = 0;
   
-  // Length check
   if (password.length >= 8) score += 1;
   if (password.length >= 12) score += 1;
   
-  // Complexity checks
   if (/[A-Z]/.test(password)) score += 1;
   if (/[a-z]/.test(password)) score += 1;
   if (/[0-9]/.test(password)) score += 1;
   if (/[^A-Za-z0-9]/.test(password)) score += 1;
   
-  // Maximum score is 6
   return Math.min(score, 6);
 };
 
-// Email validation
 const validateEmail = (email: string): boolean => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 };
@@ -52,10 +47,8 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   
   useEffect(() => {
-    // Initialize default user for demo purposes
     initializeDefaultUser();
     
-    // Check if already authenticated
     if (isAuthenticated()) {
       navigate("/dashboard");
     }
@@ -65,7 +58,6 @@ export function Login() {
     e.preventDefault();
     if (loading) return;
     
-    // Validate input
     if (!validateEmail(email)) {
       toast.error("Please enter a valid email address");
       return;
@@ -75,22 +67,18 @@ export function Login() {
     
     try {
       if (showMfaForm) {
-        // Validate MFA code
         if (!/^\d{6}$/.test(mfaCode)) {
           toast.error("Please enter a valid 6-digit MFA code");
           setLoading(false);
           return;
         }
         
-        // Verify MFA code
         const mfaResult = verifyTOTP(mfaCode, "demo-secret");
         
         if (mfaResult && userId) {
-          // Complete login with MFA
           const success = completeMFALogin(userId);
           
           if (success) {
-            // Log successful login
             logSecurity(LogCategory.AUTH, "User login successful with MFA", { email });
             toast.success("Login successful!");
             navigate("/dashboard");
@@ -101,23 +89,19 @@ export function Login() {
           toast.error("Invalid MFA code");
         }
       } else {
-        // Regular login
         const result = login(email, password);
         
         if (result.success) {
           if (result.requireMFA) {
-            // Show MFA form
             setShowMfaForm(true);
             setUserId(result.userId);
             toast.info("Please enter your MFA code from your authenticator app");
           } else {
-            // Log successful login
             logSecurity(LogCategory.AUTH, "User login successful", { email });
             toast.success("Login successful!");
             navigate("/dashboard");
           }
         } else {
-          // Log failed login attempt
           logSecurity(LogCategory.AUTH, "Failed login attempt", { email });
           toast.error(result.message);
         }
@@ -261,7 +245,6 @@ export function Register() {
   const [userId, setUserId] = useState("");
   
   useEffect(() => {
-    // Update password strength when password changes
     setPasswordStrength(checkPasswordStrength(password));
   }, [password]);
   
@@ -279,15 +262,12 @@ export function Register() {
   
   const setupMFA = async () => {
     try {
-      // Generate MFA secret
       const secret = generateMFASecret();
       setMfaSecret(secret);
       
-      // Generate QR code
       const qrCode = await generateMFAQRCode(secret, email);
       setMfaQrCode(qrCode);
       
-      // Show MFA setup form
       setShowMfaSetup(true);
     } catch (error) {
       console.error("MFA setup error:", error);
@@ -299,7 +279,6 @@ export function Register() {
     e.preventDefault();
     if (loading) return;
     
-    // Basic validation
     if (!validateEmail(email)) {
       toast.error("Please enter a valid email address");
       return;
@@ -319,20 +298,16 @@ export function Register() {
     
     try {
       if (showMfaSetup) {
-        // Verify MFA code
         if (!/^\d{6}$/.test(mfaCode)) {
           toast.error("Please enter a valid 6-digit MFA code");
           setLoading(false);
           return;
         }
         
-        // For demo purposes, we'll consider any 6-digit code valid
         const isValid = verifyTOTP(mfaCode, mfaSecret);
         
         if (isValid) {
-          // Complete registration with MFA by setting up MFA for the user
           if (setupMFA(userId, mfaSecret)) {
-            // Log successful registration
             logSecurity(LogCategory.AUTH, "User registration successful with MFA", { email });
             toast.success("Registration successful with MFA enabled!");
             navigate("/login");
@@ -343,17 +318,13 @@ export function Register() {
           toast.error("Invalid MFA code");
         }
       } else {
-        // Register the user
         const result = register(email, password);
         
         if (result.success) {
-          // Store user ID for MFA setup
           setUserId(result.userId || "");
           
-          // Set up MFA
           await setupMFA();
         } else {
-          // Log failed registration
           logSecurity(LogCategory.AUTH, "Failed registration attempt", { email });
           toast.error(result.message);
         }
