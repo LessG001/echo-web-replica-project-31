@@ -264,7 +264,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
               </CardContent>
             </Card>
             
-            <Alert variant="warning">
+            <Alert>
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
                 This key will only be shown once. Make sure to save it in a secure location.

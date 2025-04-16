@@ -97,27 +97,23 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
     setIsDecrypting(true);
     
     try {
-      // For simplicity, extract IV from the key (last part)
-      const parts = encryptionKey.split('.');
-      let iv = '';
-      let actualKey = encryptionKey;
+      // Parse the key - we expect format: "base64Key.base64IV"
+      const keyParts = encryptionKey.split('.');
       
-      if (parts.length > 1) {
-        // Last part is the IV
-        iv = parts[parts.length - 1];
-        // The rest is the key
-        actualKey = parts.slice(0, -1).join('.');
-      } else {
+      if (keyParts.length !== 2) {
         toast({
           title: "Invalid key format",
-          description: "The encryption key doesn't contain the initialization vector",
+          description: "The encryption key format is invalid. It should contain both the key and IV separated by a period.",
           variant: "destructive",
         });
         setIsDecrypting(false);
         return;
       }
       
-      const decrypted = await decryptFile(encryptedFile, actualKey, iv);
+      const key = keyParts[0];
+      const iv = keyParts[1];
+      
+      const decrypted = await decryptFile(encryptedFile, key, iv);
       setDecryptedFile(decrypted);
       
       toast({

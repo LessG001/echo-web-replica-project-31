@@ -1,144 +1,120 @@
-import { getCurrentUserEmail } from './auth';
 
+// Enum for log levels
 export enum LogLevel {
-  INFO = 'INFO',
-  WARNING = 'WARNING',
-  ERROR = 'ERROR',
-  SECURITY = 'SECURITY'
+  INFO = "INFO",
+  WARNING = "WARNING",
+  ERROR = "ERROR",
+  SECURITY = "SECURITY"
 }
 
+// Enum for log categories
 export enum LogCategory {
-  AUTH = 'Authentication',
-  FILE = 'File Operation',
-  SECURITY = 'Security',
-  SYSTEM = 'System'
+  AUTH = "Authentication",
+  FILE = "File Operation",
+  SECURITY = "Security",
+  SYSTEM = "System"
 }
 
-interface LogEntry {
+// Interface for log entries
+export interface LogEntry {
   timestamp: string;
   level: LogLevel;
   category: LogCategory;
   message: string;
   user?: string;
-  details?: any;
+  details?: Record<string, any>;
 }
 
-// In-memory log storage
-let auditLogs: LogEntry[] = [];
+// Local storage key for logs
+const LOGS_KEY = "secure_vault_logs";
 
-// Load logs from localStorage
-const loadLogs = (): void => {
+// Get current user from session
+const getCurrentUser = (): string | undefined => {
   try {
-    const storedLogs = localStorage.getItem('auditLogs');
-    if (storedLogs) {
-      auditLogs = JSON.parse(storedLogs);
+    const sessionData = localStorage.getItem("secure_vault_session");
+    if (sessionData) {
+      const session = JSON.parse(sessionData);
+      return session.email;
     }
   } catch (error) {
-    console.error("Failed to load audit logs from localStorage:", error);
+    console.error("Error getting current user:", error);
   }
+  return undefined;
 };
-
-// Save logs to localStorage
-const saveLogs = (): void => {
-  try {
-    localStorage.setItem('auditLogs', JSON.stringify(auditLogs));
-  } catch (storageError) {
-    console.error("Failed to save to localStorage:", storageError);
-  }
-};
-
-// Initialize by loading logs
-loadLogs();
 
 // Add a log entry
-export const log = (
+const addLog = (
   level: LogLevel,
   category: LogCategory,
   message: string,
-  details?: any
+  details?: Record<string, any>
 ): void => {
-  const timestamp = new Date().toISOString();
-  const user = getCurrentUserEmail();
-  
-  const logEntry: LogEntry = {
-    timestamp,
-    level,
-    category,
-    message,
-    user: user || 'Anonymous',
-    details
-  };
-  
-  auditLogs.unshift(logEntry); // Add to beginning for reverse chronological order
-  
-  // Keep only the last 1000 logs
-  if (auditLogs.length > 1000) {
-    auditLogs = auditLogs.slice(0, 1000);
+  try {
+    const logs = getLogs();
+    const user = getCurrentUser();
+    
+    const newLog: LogEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      category,
+      message,
+      user,
+      details
+    };
+    
+    logs.unshift(newLog); // Add to the beginning for chronological display
+    
+    // Limit logs to 1000 entries
+    if (logs.length > 1000) {
+      logs.pop();
+    }
+    
+    localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
+  } catch (error) {
+    console.error("Error adding log:", error);
   }
-  
-  saveLogs();
-  console.log(`[${level}] [${category}] ${message}`);
 };
 
-// Helper methods for common log types
-export const logInfo = (category: LogCategory, message: string, details?: any): void => {
-  log(LogLevel.INFO, category, message, details);
-};
-
-export const logWarning = (category: LogCategory, message: string, details?: any): void => {
-  log(LogLevel.WARNING, category, message, details);
-};
-
-export const logError = (category: LogCategory, message: string, details?: any): void => {
-  log(LogLevel.ERROR, category, message, details);
-};
-
-export const logSecurity = (category: LogCategory, message: string, details?: any): void => {
-  log(LogLevel.SECURITY, category, message, details);
-};
-
-// Get logs with filtering
-export const getLogs = (
-  level?: LogLevel,
-  category?: LogCategory,
-  user?: string,
-  startDate?: Date,
-  endDate?: Date,
-  limit: number = 100
-): LogEntry[] => {
-  // Ensure we have the latest logs
-  loadLogs();
-  
-  let filteredLogs = auditLogs;
-  
-  if (level) {
-    filteredLogs = filteredLogs.filter(log => log.level === level);
+// Get all logs
+export const getLogs = (): LogEntry[] => {
+  try {
+    const logsData = localStorage.getItem(LOGS_KEY);
+    return logsData ? JSON.parse(logsData) : [];
+  } catch (error) {
+    console.error("Error getting logs:", error);
+    return [];
   }
-  
-  if (category) {
-    filteredLogs = filteredLogs.filter(log => log.category === category);
-  }
-  
-  if (user) {
-    filteredLogs = filteredLogs.filter(log => log.user?.includes(user));
-  }
-  
-  if (startDate) {
-    filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) >= startDate);
-  }
-  
-  if (endDate) {
-    filteredLogs = filteredLogs.filter(log => new Date(log.timestamp) <= endDate);
-  }
-  
-  return filteredLogs.slice(0, limit);
 };
 
-// Clear all logs
-export const clearLogs = (): void => {
-  auditLogs = [];
-  saveLogs();
+// Helper functions for each log level
+export const logInfo = (
+  category: LogCategory,
+  message: string,
+  details?: Record<string, any>
+): void => {
+  addLog(LogLevel.INFO, category, message, details);
 };
 
-// Export types
-export type { LogEntry };
+export const logWarning = (
+  category: LogCategory,
+  message: string,
+  details?: Record<string, any>
+): void => {
+  addLog(LogLevel.WARNING, category, message, details);
+};
+
+export const logError = (
+  category: LogCategory,
+  message: string,
+  details?: Record<string, any>
+): void => {
+  addLog(LogLevel.ERROR, category, message, details);
+};
+
+export const logSecurity = (
+  category: LogCategory,
+  message: string,
+  details?: Record<string, any>
+): void => {
+  addLog(LogLevel.SECURITY, category, message, details);
+};
