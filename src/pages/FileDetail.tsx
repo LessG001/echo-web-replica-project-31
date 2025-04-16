@@ -107,6 +107,13 @@ export default function FileDetailsPage() {
     }
   };
   
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return bytes + ' bytes';
+    else if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+    else if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    else return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  };
+  
   if (!file) {
     return (
       <div className="flex-1 p-6">
@@ -195,8 +202,8 @@ export default function FileDetailsPage() {
     extension: file.extension,
     size: typeof file.size === 'number' ? formatFileSize(file.size) : file.size,
     type: file.type || 'application/octet-stream',
-    created: typeof file.created === 'object' ? file.created.toISOString() : file.created,
-    modified: typeof file.modified === 'object' ? file.modified.toISOString() : file.modified,
+    created: file.created ? (typeof file.created === 'object' ? file.created.toISOString() : file.created) : new Date().toISOString(),
+    modified: file.modified ? (typeof file.modified === 'object' ? file.modified.toISOString() : file.modified) : new Date().toISOString(),
     createdBy: file.createdBy || 'Unknown',
     modifiedBy: file.modifiedBy || 'Unknown',
     isEncrypted: !!file.isEncrypted,

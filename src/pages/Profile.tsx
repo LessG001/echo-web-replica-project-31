@@ -1,310 +1,286 @@
+
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Separator } from "@/components/ui/separator";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
-import {
-  getCurrentUser,
-  changePassword,
-  User
-} from "@/utils/auth";
-import { logSecurity, LogCategory } from "@/utils/audit-logger";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { UserAvatar } from "@/components/user-avatar";
-import { Key, Shield, Settings, User as UserIcon, AlertCircle, CheckCircle2 } from "lucide-react";
-
-const checkPasswordStrength = (password: string): number => {
-  let score = 0;
-  
-  if (password.length >= 8) score += 1;
-  if (password.length >= 12) score += 1;
-  
-  if (/[A-Z]/.test(password)) score += 1;
-  if (/[a-z]/.test(password)) score += 1;
-  if (/[0-9]/.test(password)) score += 1;
-  if (/[^A-Za-z0-9]/.test(password)) score += 1;
-  
-  return Math.min(score, 6);
-};
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { User, Icon, Lock, Shield, AlertTriangle, CheckCircle2, LogOut } from "lucide-react";
+import { isAuthenticated, getCurrentUser, logout, changePassword } from "@/utils/auth";
+import { useNavigate } from "react-router-dom";
+import { logInfo, LogCategory } from "@/utils/audit-logger";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const [user, setUser] = useState<ReturnType<typeof getCurrentUser>>(null);
+  
+  // Password change states
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordStrength, setPasswordStrength] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<User | null>(getCurrentUser());
+  const [passwordError, setPasswordError] = useState("");
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
   
   useEffect(() => {
-    setPasswordStrength(checkPasswordStrength(newPassword));
-  }, [newPassword]);
-  
-  useEffect(() => {
-    const currentUser = getCurrentUser();
-    if (!currentUser) {
+    // Redirect if not authenticated
+    if (!isAuthenticated()) {
       navigate("/login");
-    } else {
-      setUser(currentUser);
+      return;
     }
+    
+    // Get user data
+    const userData = getCurrentUser();
+    if (!userData) {
+      navigate("/login");
+      return;
+    }
+    
+    setUser(userData);
   }, [navigate]);
   
-  const getStrengthColor = () => {
-    if (passwordStrength <= 2) return "bg-red-500";
-    if (passwordStrength <= 4) return "bg-yellow-500";
-    return "bg-green-500";
-  };
-  
-  const getStrengthText = () => {
-    if (passwordStrength <= 2) return "Weak";
-    if (passwordStrength <= 4) return "Moderate";
-    return "Strong";
-  };
-  
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handlePasswordChange = (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    setPasswordError("");
+    setPasswordSuccess(false);
+    
+    // Validate passwords
+    if (!currentPassword) {
+      setPasswordError("Current password is required");
+      return;
+    }
+    
+    if (!newPassword) {
+      setPasswordError("New password is required");
+      return;
+    }
     
     if (newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters long");
+      setPasswordError("New password must be at least 8 characters long");
       return;
     }
     
     if (newPassword !== confirmPassword) {
-      toast.error("Passwords do not match");
+      setPasswordError("Passwords do not match");
       return;
     }
     
-    setLoading(true);
-    
-    try {
-      if (!user) {
-        toast.error("User not found");
-        setLoading(false);
-        return;
-      }
-      
+    if (user) {
+      // Change password
       const result = changePassword(user.id, currentPassword, newPassword);
       
       if (result.success) {
-        logSecurity(LogCategory.AUTH, "Password changed", { userId: user.id });
-        toast.success(result.message);
-        
+        setPasswordSuccess(true);
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
+        toast.success("Password updated successfully");
+        
+        logInfo(LogCategory.USER, "Password changed");
       } else {
+        setPasswordError(result.message);
         toast.error(result.message);
       }
-    } catch (error) {
-      console.error("Password change error:", error);
-      toast.error("An error occurred while changing password");
-    } finally {
-      setLoading(false);
     }
   };
   
-  const userInitials = user?.email
-    ? user.email.split('@')[0].slice(0, 2).toUpperCase()
-    : "U";
+  const handleLogout = () => {
+    logout();
+    toast.success("You have been logged out");
+    navigate("/login");
+  };
   
-  if (!user) return null;
+  const toggleMfaEnabled = () => {
+    if (!user) return;
+    
+    if (!user.mfaEnabled) {
+      // Show setup MFA flow
+      navigate("/setup-mfa");
+    } else {
+      // Disable MFA
+      toast.error("MFA cannot be disabled directly from the profile page for security reasons. Please contact support.");
+    }
+  };
+  
+  if (!user) {
+    return (
+      <div className="flex-1 p-6">
+        <div className="flex justify-center items-center h-[60vh]">
+          <p>Loading profile...</p>
+        </div>
+      </div>
+    );
+  }
   
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Profile</h1>
+    <div className="flex-1 p-6">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Your Profile</h1>
+        <p className="text-muted-foreground">
+          Manage your account settings and security preferences
+        </p>
+      </div>
       
-      <Tabs defaultValue="account" className="w-full">
-        <TabsList className="grid grid-cols-3 mb-6">
-          <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="account">
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Information</CardTitle>
-              <CardDescription>
-                Manage your account details and personal information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col sm:flex-row gap-8 items-start">
-                <div className="flex flex-col items-center gap-3">
-                  <UserAvatar
-                    user={{
-                      name: user.email,
-                      initials: userInitials
-                    }}
-                    className="h-24 w-24"
-                  />
-                  <Button variant="outline" size="sm">
-                    Change Avatar
-                  </Button>
-                </div>
-                
-                <div className="space-y-4 flex-1">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                      id="email"
-                      value={user.email}
-                      disabled
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="account-created">Account Created</Label>
-                    <Input
-                      id="account-created"
-                      value={new Date(user.createdAt).toLocaleString()}
-                      disabled
-                    />
-                  </div>
-                  
-                  {user.lastLogin && (
-                    <div className="space-y-2">
-                      <Label htmlFor="last-login">Last Login</Label>
-                      <Input
-                        id="last-login"
-                        value={new Date(user.lastLogin).toLocaleString()}
-                        disabled
-                      />
-                    </div>
-                  )}
-                </div>
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Account Information
+            </CardTitle>
+            <CardDescription>
+              View and manage your account details
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">Email Address</Label>
+                <p className="font-medium">{user.email}</p>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="security">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Change Password</CardTitle>
-                <CardDescription>
-                  Update your password to maintain account security
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleChangePassword} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="current-password">Current Password</Label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="new-password">New Password</Label>
-                    <Input
-                      id="new-password"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      required
-                    />
-                    <div className="mt-2">
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs text-muted-foreground">Password strength:</span>
-                        <span className="text-xs">{getStrengthText()}</span>
-                      </div>
-                      <Progress 
-                        value={(passwordStrength / 6) * 100} 
-                        className={`h-1 ${getStrengthColor()}`} 
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <Button type="submit" disabled={loading}>
-                    {loading ? "Updating..." : "Update Password"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Two-Factor Authentication</CardTitle>
-                <CardDescription>
-                  Add an extra layer of security to your account
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-8 w-8 text-primary" />
-                    <div>
-                      <h3 className="font-medium">Two-Factor Authentication</h3>
-                      <p className="text-sm text-muted-foreground">
-                        {user.mfaEnabled
-                          ? "Two-factor authentication is enabled"
-                          : "Protect your account with two-factor authentication"}
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant={user.mfaEnabled ? "destructive" : "default"}>
-                    {user.mfaEnabled ? "Disable" : "Enable"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>
-                Your recent account activity and security events
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-muted-foreground text-center py-8">
-                  Detailed activity logs are available on the Audit Logs page.
+              <div>
+                <Label className="text-sm text-muted-foreground">Account Created</Label>
+                <p className="font-medium">
+                  {new Date(user.createdAt).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                  })}
                 </p>
-                <div className="flex justify-center">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => navigate("/audit-logs")}
-                  >
-                    View Audit Logs
-                  </Button>
-                </div>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-sm text-muted-foreground">Last Login</Label>
+                <p className="font-medium">
+                  {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : "N/A"}
+                </p>
+              </div>
+              <div>
+                <Label className="text-sm text-muted-foreground">Account ID</Label>
+                <p className="font-mono text-sm">{user.id}</p>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter className="flex justify-end">
+            <Button 
+              variant="destructive"
+              size="sm"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </CardFooter>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Change Password
+            </CardTitle>
+            <CardDescription>
+              Update your password to keep your account secure
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handlePasswordChange} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="current-password">Current Password</Label>
+                <Input
+                  id="current-password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                />
+              </div>
+              
+              {passwordError && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{passwordError}</AlertDescription>
+                </Alert>
+              )}
+              
+              {passwordSuccess && (
+                <Alert>
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <AlertDescription>Password updated successfully</AlertDescription>
+                </Alert>
+              )}
+              
+              <Button type="submit">Update Password</Button>
+            </form>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5" />
+              Security Settings
+            </CardTitle>
+            <CardDescription>
+              Configure multi-factor authentication and other security features
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-base">Two-Factor Authentication</Label>
+                <p className="text-sm text-muted-foreground">
+                  Add an extra layer of security to your account
+                </p>
+              </div>
+              <Switch
+                checked={user.mfaEnabled || false}
+                onCheckedChange={toggleMfaEnabled}
+              />
+            </div>
+            
+            <Separator />
+            
+            {user.mfaEnabled ? (
+              <Alert>
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                <AlertDescription>
+                  Two-factor authentication is enabled for your account, providing enhanced security.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  Your account doesn't have two-factor authentication enabled. 
+                  We strongly recommend enabling this feature for improved security.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

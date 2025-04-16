@@ -1,120 +1,167 @@
 
-// Enum for log levels
-export enum LogLevel {
-  INFO = "INFO",
-  WARNING = "WARNING",
-  ERROR = "ERROR",
-  SECURITY = "SECURITY"
-}
+// This file contains audit logging functionality
+import { getCurrentUser } from './auth';
 
-// Enum for log categories
 export enum LogCategory {
-  AUTH = "Authentication",
-  FILE = "File Operation",
-  SECURITY = "Security",
-  SYSTEM = "System"
+  AUTH = 'AUTH',
+  FILE = 'FILE',
+  SECURITY = 'SECURITY',
+  USER = 'USER',
+  SYSTEM = 'SYSTEM'
 }
 
-// Interface for log entries
+export enum LogLevel {
+  INFO = 'INFO',
+  WARNING = 'WARNING',
+  ERROR = 'ERROR'
+}
+
 export interface LogEntry {
+  id: string;
   timestamp: string;
-  level: LogLevel;
   category: LogCategory;
+  level: LogLevel;
   message: string;
-  user?: string;
-  details?: Record<string, any>;
+  userId?: string;
+  userEmail?: string;
+  metadata?: object;
 }
 
-// Local storage key for logs
-const LOGS_KEY = "secure_vault_logs";
-
-// Get current user from session
-const getCurrentUser = (): string | undefined => {
-  try {
-    const sessionData = localStorage.getItem("secure_vault_session");
-    if (sessionData) {
-      const session = JSON.parse(sessionData);
-      return session.email;
-    }
-  } catch (error) {
-    console.error("Error getting current user:", error);
-  }
-  return undefined;
-};
-
-// Add a log entry
-const addLog = (
-  level: LogLevel,
-  category: LogCategory,
-  message: string,
-  details?: Record<string, any>
-): void => {
-  try {
-    const logs = getLogs();
-    const user = getCurrentUser();
-    
-    const newLog: LogEntry = {
-      timestamp: new Date().toISOString(),
-      level,
-      category,
-      message,
-      user,
-      details
-    };
-    
-    logs.unshift(newLog); // Add to the beginning for chronological display
-    
-    // Limit logs to 1000 entries
-    if (logs.length > 1000) {
-      logs.pop();
-    }
-    
-    localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
-  } catch (error) {
-    console.error("Error adding log:", error);
-  }
-};
-
-// Get all logs
-export const getLogs = (): LogEntry[] => {
-  try {
-    const logsData = localStorage.getItem(LOGS_KEY);
-    return logsData ? JSON.parse(logsData) : [];
-  } catch (error) {
-    console.error("Error getting logs:", error);
-    return [];
-  }
-};
-
-// Helper functions for each log level
+// Create an info log entry
 export const logInfo = (
   category: LogCategory,
   message: string,
-  details?: Record<string, any>
+  metadata?: object
 ): void => {
-  addLog(LogLevel.INFO, category, message, details);
+  createLogEntry(LogLevel.INFO, category, message, metadata);
 };
 
+// Create a warning log entry
 export const logWarning = (
   category: LogCategory,
   message: string,
-  details?: Record<string, any>
+  metadata?: object
 ): void => {
-  addLog(LogLevel.WARNING, category, message, details);
+  createLogEntry(LogLevel.WARNING, category, message, metadata);
 };
 
+// Create an error log entry
 export const logError = (
   category: LogCategory,
   message: string,
-  details?: Record<string, any>
+  metadata?: object
 ): void => {
-  addLog(LogLevel.ERROR, category, message, details);
+  createLogEntry(LogLevel.ERROR, category, message, metadata);
 };
 
+// For security-specific events, use this function
 export const logSecurity = (
   category: LogCategory,
   message: string,
-  details?: Record<string, any>
+  metadata?: object
 ): void => {
-  addLog(LogLevel.SECURITY, category, message, details);
+  createLogEntry(LogLevel.INFO, category, message, metadata);
+};
+
+// Create a log entry and store it in localStorage
+const createLogEntry = (
+  level: LogLevel,
+  category: LogCategory,
+  message: string,
+  metadata?: object
+): void => {
+  try {
+    const currentUser = getCurrentUser();
+    
+    const logEntry: LogEntry = {
+      id: generateLogId(),
+      timestamp: new Date().toISOString(),
+      category,
+      level,
+      message,
+      userId: currentUser?.id,
+      userEmail: currentUser?.email,
+      metadata
+    };
+    
+    // Get existing logs from localStorage
+    const logsData = localStorage.getItem('secure_vault_logs');
+    const logs: LogEntry[] = logsData ? JSON.parse(logsData) : [];
+    
+    // Add the new log entry
+    logs.unshift(logEntry); // Add to beginning of array
+    
+    // Limit the number of stored logs to prevent localStorage overflow
+    const maxLogs = 1000;
+    const trimmedLogs = logs.slice(0, maxLogs);
+    
+    // Save back to localStorage
+    localStorage.setItem('secure_vault_logs', JSON.stringify(trimmedLogs));
+    
+    // Log to console for debugging
+    console.log(`[${level}][${category}] ${message}`, metadata);
+  } catch (error) {
+    console.error('Failed to create log entry:', error);
+  }
+};
+
+// Generate a unique log ID
+const generateLogId = (): string => {
+  return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+};
+
+// Get all log entries
+export const getLogs = (): LogEntry[] => {
+  const logsData = localStorage.getItem('secure_vault_logs');
+  return logsData ? JSON.parse(logsData) : [];
+};
+
+// Filter logs by category, level, or time range
+export const filterLogs = (
+  options: {
+    category?: LogCategory;
+    level?: LogLevel;
+    startDate?: string;
+    endDate?: string;
+    userId?: string;
+  }
+): LogEntry[] => {
+  const logs = getLogs();
+  
+  return logs.filter(log => {
+    if (options.category && log.category !== options.category) {
+      return false;
+    }
+    
+    if (options.level && log.level !== options.level) {
+      return false;
+    }
+    
+    if (options.userId && log.userId !== options.userId) {
+      return false;
+    }
+    
+    if (options.startDate) {
+      const startDate = new Date(options.startDate);
+      const logDate = new Date(log.timestamp);
+      if (logDate < startDate) {
+        return false;
+      }
+    }
+    
+    if (options.endDate) {
+      const endDate = new Date(options.endDate);
+      const logDate = new Date(log.timestamp);
+      if (logDate > endDate) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+};
+
+// Clear all logs
+export const clearLogs = (): void => {
+  localStorage.removeItem('secure_vault_logs');
 };

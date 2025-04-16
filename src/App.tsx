@@ -21,6 +21,7 @@ import SharedPage from "./pages/Shared";
 import EncryptedPage from "./pages/Encrypted";
 import TagsPage from "./pages/Tags";
 import ProfilePage from "./pages/Profile";
+import SetupMFAPage from "./pages/SetupMFA";
 
 // Protected route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -69,6 +70,7 @@ const App = () => {
                 <Route path="/tags" element={<TagsPage />} />
                 <Route path="/audit-logs" element={<AuditLogPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/setup-mfa" element={<SetupMFAPage />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
