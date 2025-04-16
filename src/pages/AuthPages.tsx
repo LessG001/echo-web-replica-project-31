@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,7 +12,8 @@ import {
   login, 
   completeMFALogin, 
   isAuthenticated,
-  initializeDefaultUser
+  initializeDefaultUser,
+  setupMFA
 } from "@/utils/auth";
 import { generateMFASecret, generateMFAQRCode, verifyTOTP } from "@/utils/mfa";
 import { logSecurity, LogCategory } from "@/utils/audit-logger";
@@ -109,7 +109,7 @@ export function Login() {
             // Show MFA form
             setShowMfaForm(true);
             setUserId(result.userId);
-            toast.info("Please enter your MFA code");
+            toast.info("Please enter your MFA code from your authenticator app");
           } else {
             // Log successful login
             logSecurity(LogCategory.AUTH, "User login successful", { email });
@@ -330,10 +330,15 @@ export function Register() {
         const isValid = verifyTOTP(mfaCode, mfaSecret);
         
         if (isValid) {
-          // Complete registration with MFA
-          logSecurity(LogCategory.AUTH, "User registration successful with MFA", { email });
-          toast.success("Registration successful!");
-          navigate("/login");
+          // Complete registration with MFA by setting up MFA for the user
+          if (setupMFA(userId, mfaSecret)) {
+            // Log successful registration
+            logSecurity(LogCategory.AUTH, "User registration successful with MFA", { email });
+            toast.success("Registration successful with MFA enabled!");
+            navigate("/login");
+          } else {
+            toast.error("Failed to set up MFA");
+          }
         } else {
           toast.error("Invalid MFA code");
         }

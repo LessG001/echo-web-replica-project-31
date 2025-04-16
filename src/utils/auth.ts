@@ -233,7 +233,10 @@ export const setupMFA = (userId: string, secret: string): boolean => {
 
 // Verify MFA token
 export const verifyMFA = (userId: string, token: string): boolean => {
-  // In a real app, this would verify against the user's secret using TOTP algorithm
+  const user = users.find(u => u.id === userId);
+  if (!user || !user.mfaSecret) return false;
+  
+  // In a real app, this would verify the token against user's secret using TOTP algorithm
   // For demo purposes, we'll use a simple check (any 6-digit number)
   return /^\d{6}$/.test(token);
 };
