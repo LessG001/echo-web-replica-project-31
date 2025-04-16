@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { X, Upload, File, Key, Lock } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -15,7 +14,7 @@ import { logInfo, LogCategory } from "@/utils/audit-logger";
 interface UploadModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onUpload: () => void;
+  onUpload: (fileData: UploadFileData) => void;
 }
 
 export interface UploadFileData {
@@ -45,7 +44,6 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       resetFileState();
@@ -140,24 +138,20 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     const fileToUpload = encrypt && encryptedFile ? encryptedFile : selectedFile;
     
     try {
-      // Convert file to data URL for storage
       const fileReader = new FileReader();
       
       fileReader.onload = async (e) => {
         try {
           const fileContent = e.target?.result;
           
-          // Generate file ID
           const fileId = generateFileId();
           
-          // Generate additional file metadata
           const now = new Date();
           const currentUser = getCurrentUser();
           const fileType = fileToUpload.type.split('/')[0] || 'document';
           const tags = [fileType];
           if (encrypt) tags.push('encrypted');
           
-          // Create file record
           const newFile = {
             id: fileId,
             name: fileToUpload.name,
@@ -181,22 +175,23 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
             } : undefined
           };
           
-          // Save file content
           if (fileContent) {
             storeFileContent(fileId, fileContent);
           }
           
-          // Save file record
           addFile(newFile);
           
-          // Log file upload
           logInfo(LogCategory.FILE, `File uploaded: ${fileToUpload.name}`, {
             fileId,
             fileName: fileToUpload.name,
             encrypted: encrypt
           });
           
-          onUpload();
+          onUpload({
+            file: fileToUpload,
+            encrypt,
+            encryptionData: encryptionData || undefined
+          });
         } catch (error) {
           console.error("Failed to process uploaded file:", error);
           toast({

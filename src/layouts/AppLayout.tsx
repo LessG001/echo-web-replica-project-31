@@ -175,7 +175,7 @@ export default function AppLayout() {
           <UploadModal 
             isOpen={isUploadModalOpen} 
             onClose={() => setIsUploadModalOpen(false)}
-            onUpload={handleUpload}
+            onUpload={(fileData: UploadFileData) => handleUpload(fileData)}
           />
           
           <DecryptionModal

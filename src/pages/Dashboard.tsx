@@ -82,7 +82,7 @@ export default function Dashboard() {
     toast.info(`View changed to ${view} view`);
   };
 
-  const handleFileUploaded = () => {
+  const handleFileUploaded = (fileData?: UploadFileData) => {
     // Reload files after upload
     loadFiles();
     setIsUploadModalOpen(false);
