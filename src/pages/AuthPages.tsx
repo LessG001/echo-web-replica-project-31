@@ -260,7 +260,7 @@ export function Register() {
     }
   }, [navigate]);
   
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
@@ -297,7 +297,8 @@ export function Register() {
       const secret = generateMFASecret();
       setMfaSecret(secret);
       
-      generateMFAQRCode(secret, email).then(url => setMfaQrCode(url));
+      const qrUrl = await generateMFAQRCode(secret, email);
+      setMfaQrCode(qrUrl);
       
       setCurrentStep(2);
       
@@ -463,12 +464,26 @@ export function Register() {
                 </p>
                 
                 <div className="my-4 p-4 bg-white flex justify-center rounded-lg">
-                  <div className="p-8 border border-dashed border-gray-300 text-center">
-                    <p className="text-black">QR Code would be displayed here</p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      For demo, use any 6-digit code
-                    </p>
-                  </div>
+                  {mfaQrCode ? (
+                    <img
+                      src={mfaQrCode}
+                      alt="QR code for Google Authenticator"
+                      className="w-48 h-48"
+                    />
+                  ) : (
+                    <div className="p-8 border border-dashed border-gray-300 text-center">
+                      <p className="text-black">Loading QR code...</p>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="pt-2">
+                  <p className="text-sm text-muted-foreground">
+                    If you can't scan the QR code, enter this code manually in your app:
+                  </p>
+                  <p className="font-mono text-sm bg-muted p-2 rounded mt-1 select-all">
+                    {mfaSecret}
+                  </p>
                 </div>
                 
                 <div className="space-y-1">

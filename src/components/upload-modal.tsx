@@ -175,18 +175,28 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
         onUpload(fileData);
       }
       
-      // Reset state
-      setTimeout(() => {
-        setSelectedFile(null);
-        setEncryptedFile(null);
-        setEncryptionKey("");
-        setTags([]);
-        setTagInput("");
-        setEncryptFile(false);
-        setUploadProgress(0);
+      // Reset state but don't close modal yet if we encrypted the file
+      // This ensures the user has a chance to copy the encryption key
+      if (encryptFile && encryptionKey) {
+        clearInterval(interval);
+        setUploadProgress(100);
         setIsUploading(false);
-        onClose();
-      }, 1000);
+        toast.success("File encrypted and uploaded successfully");
+        // We don't close the modal here so the user can see and copy the encryption key
+      } else {
+        // Reset state and close modal for non-encrypted files
+        setTimeout(() => {
+          setSelectedFile(null);
+          setEncryptedFile(null);
+          setEncryptionKey("");
+          setTags([]);
+          setTagInput("");
+          setEncryptFile(false);
+          setUploadProgress(0);
+          setIsUploading(false);
+          onClose();
+        }, 1000);
+      }
       
     } catch (error) {
       console.error("Upload failed:", error);
@@ -218,7 +228,12 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      // Only allow closing if we're not in the middle of uploading
+      if (!open && !isUploading) {
+        resetForm();
+      }
+    }}>
       <DialogContent className="sm:max-w-md md:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Upload File</DialogTitle>
