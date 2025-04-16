@@ -118,13 +118,13 @@ export function DecryptionModal({ isOpen, onClose }: DecryptionModalProps) {
       
       toast({
         title: "File decrypted",
-        description: `${encryptedFile.name} has been successfully decrypted`,
+        description: `${encryptedFile.name} has been successfully decrypted to ${decrypted.name}`,
       });
     } catch (error) {
       console.error("Decryption failed:", error);
       toast({
         title: "Decryption failed",
-        description: "Invalid encryption key or the file is not encrypted",
+        description: "Invalid encryption key or the file is corrupted",
         variant: "destructive",
       });
     } finally {

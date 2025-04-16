@@ -2,6 +2,7 @@
 // This file contains MFA-related utility functions
 import { v4 as uuidv4 } from 'uuid';
 import * as QRCode from 'qrcode';
+import * as OTPAuth from 'otpauth';
 
 // Generate a random MFA secret key
 export const generateMFASecret = (): string => {
@@ -39,12 +40,29 @@ export const generateMFAQRCode = async (secret: string, email: string): Promise<
 
 // Verify a TOTP code
 export const verifyTOTP = (secret: string, code: string): boolean => {
-  // For demo purposes only - this would validate against current time window in a real app
-  // In a real app, we would:
-  // 1. Convert the secret to a buffer
-  // 2. Calculate the HMAC-SHA1 of the current time period
-  // 3. Extract a 6-digit code from the HMAC
-  // 4. Compare it to the user's input
-  
-  return code.length === 6 && /^\d+$/.test(code);
+  if (!code || code.length !== 6 || !/^\d+$/.test(code)) {
+    return false;
+  }
+
+  try {
+    // Create a new TOTP object with the secret
+    const totp = new OTPAuth.TOTP({
+      issuer: 'SecureVault',
+      label: 'SecureVault',
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(secret)
+    });
+
+    // Verify the TOTP code
+    const delta = totp.validate({ token: code, window: 1 });
+    
+    // If delta is null, the token is invalid
+    // If delta is a number (even negative), the token is valid
+    return delta !== null;
+  } catch (error) {
+    console.error('TOTP verification error:', error);
+    return false;
+  }
 };

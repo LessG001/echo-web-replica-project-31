@@ -1,12 +1,13 @@
+
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Lock, Upload, X } from "lucide-react";
+import { Lock, Upload, X, Copy, CheckCircle2 } from "lucide-react";
 import { encryptFile as encryptFileUtil } from "@/utils/encryption";
 import { generateFileId, formatFileSize, formatTimestamp, addFile, saveFileContent } from "@/utils/file-storage";
 import { getCurrentUser } from "@/utils/auth";
@@ -38,6 +39,8 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
   const [encryptionKey, setEncryptionKey] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [uploadComplete, setUploadComplete] = useState(false);
+  const [keyCopied, setKeyCopied] = useState(false);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -45,6 +48,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       setSelectedFile(files[0]);
       setEncryptedFile(null);
       setEncryptionKey("");
+      setUploadComplete(false);
     }
   };
   
@@ -55,6 +59,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       setSelectedFile(files[0]);
       setEncryptedFile(null);
       setEncryptionKey("");
+      setUploadComplete(false);
     }
   };
   
@@ -67,6 +72,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadComplete(false);
     
     try {
       // Simulate progress
@@ -157,6 +163,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
       
       clearInterval(interval);
       setUploadProgress(100);
+      setUploadComplete(true);
       
       // Prepare file data for callback
       const fileData: UploadFileData = {
@@ -170,32 +177,20 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
         fileData.encryptionData = fileEncryptionData;
       }
       
-      // Notify parent component
-      if (onUpload) {
+      // If encrypted, we'll call onUpload when the user clicks "Continue"
+      if (!encryptFile && onUpload) {
         onUpload(fileData);
-      }
-      
-      // Reset state but don't close modal yet if we encrypted the file
-      // This ensures the user has a chance to copy the encryption key
-      if (encryptFile && encryptionKey) {
-        clearInterval(interval);
-        setUploadProgress(100);
-        setIsUploading(false);
-        toast.success("File encrypted and uploaded successfully");
-        // We don't close the modal here so the user can see and copy the encryption key
-      } else {
+        
         // Reset state and close modal for non-encrypted files
         setTimeout(() => {
-          setSelectedFile(null);
-          setEncryptedFile(null);
-          setEncryptionKey("");
-          setTags([]);
-          setTagInput("");
-          setEncryptFile(false);
-          setUploadProgress(0);
-          setIsUploading(false);
+          resetForm();
           onClose();
         }, 1000);
+      } else if (encryptFile) {
+        // Just mark as complete but don't close for encrypted files
+        toast.success("File encrypted successfully");
+        // We store the fileData to use when user clicks "Continue"
+        window.uploadedFileData = fileData;
       }
       
     } catch (error) {
@@ -216,15 +211,37 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
     setTags(tags.filter(t => t !== tag));
   };
   
+  const handleCopyKey = () => {
+    if (encryptionKey) {
+      navigator.clipboard.writeText(encryptionKey);
+      setKeyCopied(true);
+      toast.success("Encryption key copied to clipboard");
+      
+      // Reset the copied status after 3 seconds
+      setTimeout(() => setKeyCopied(false), 3000);
+    }
+  };
+  
+  const handleContinue = () => {
+    if (window.uploadedFileData && onUpload) {
+      onUpload(window.uploadedFileData);
+      window.uploadedFileData = undefined;
+    }
+    resetForm();
+    onClose();
+  };
+  
   const resetForm = () => {
     setSelectedFile(null);
     setEncryptedFile(null);
     setEncryptionKey("");
     setTags([]);
     setTagInput("");
+    setEncryptFile(false);
     setUploadProgress(0);
     setIsUploading(false);
-    onClose();
+    setUploadComplete(false);
+    setKeyCopied(false);
   };
   
   return (
@@ -284,31 +301,38 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                 encryptedFile={encryptedFile || undefined}
               />
               
-              {encryptFile && encryptionKey && (
+              {uploadComplete && encryptFile && encryptionKey && (
                 <div className="bg-secondary/20 p-4 rounded-md border border-border/40">
                   <div className="flex items-center mb-2">
                     <Lock className="h-4 w-4 text-primary mr-2" />
                     <h3 className="font-medium">Encryption Key</h3>
                   </div>
                   <p className="text-sm mb-2">
-                    Save this key securely! You will need it to decrypt the file. It will only be shown once.
+                    <strong>IMPORTANT:</strong> Save this key securely! You will need it to decrypt the file. It will only be shown once.
                   </p>
                   <div className="flex">
                     <Input
                       value={encryptionKey}
                       readOnly
-                      className="text-xs font-mono"
+                      className="text-xs font-mono bg-background"
                     />
                     <Button 
                       variant="outline" 
                       size="sm" 
                       className="ml-2 whitespace-nowrap"
-                      onClick={() => {
-                        navigator.clipboard.writeText(encryptionKey);
-                        toast.success("Encryption key copied to clipboard");
-                      }}
+                      onClick={handleCopyKey}
                     >
-                      Copy
+                      {keyCopied ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-1 text-green-500" />
+                          Copied
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="h-4 w-4 mr-1" />
+                          Copy
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -339,6 +363,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                         setEncryptionKey("");
                       }
                     }} 
+                    disabled={isUploading || uploadComplete}
                   />
                   <div className="grid gap-1.5">
                     <Label 
@@ -362,13 +387,14 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                       onChange={(e) => setTagInput(e.target.value)} 
                       placeholder="Add tags..." 
                       className="flex-1"
+                      disabled={isUploading || uploadComplete}
                     />
                     <Button 
                       variant="outline" 
                       className="ml-2" 
                       type="button"
                       onClick={handleAddTag}
-                      disabled={!tagInput.trim()}
+                      disabled={!tagInput.trim() || isUploading || uploadComplete}
                     >
                       Add
                     </Button>
@@ -385,6 +411,7 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
                           <button 
                             onClick={() => handleRemoveTag(tag)}
                             className="ml-1.5 text-muted-foreground hover:text-foreground"
+                            disabled={isUploading || uploadComplete}
                           >
                             <X className="h-3 w-3" />
                           </button>
@@ -413,18 +440,35 @@ export function UploadModal({ isOpen, onClose, onUpload }: UploadModalProps) {
           </div>
         )}
         
-        <div className="flex justify-end gap-2 mt-4">
+        <DialogFooter className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={resetForm} disabled={isUploading}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleUpload} 
-            disabled={!selectedFile || isUploading}
-          >
-            Upload
-          </Button>
-        </div>
+          
+          {uploadComplete && encryptFile ? (
+            <Button 
+              onClick={handleContinue}
+              disabled={isUploading}
+            >
+              Continue
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleUpload} 
+              disabled={!selectedFile || isUploading || uploadComplete}
+            >
+              {isUploading ? 'Uploading...' : 'Upload'}
+            </Button>
+          )}
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+// Declare window to extend the Window interface
+declare global {
+  interface Window {
+    uploadedFileData?: UploadFileData;
+  }
 }
