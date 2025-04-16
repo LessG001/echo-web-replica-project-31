@@ -17,6 +17,11 @@ interface FilePreviewProps {
   className?: string;
 }
 
+// Type guard to check if the file is a File object
+function isFileObject(file: FileInfo | File): file is File {
+  return (file as File).arrayBuffer !== undefined;
+}
+
 export function FilePreview({ 
   file, 
   encryptedFile, 
@@ -46,8 +51,8 @@ export function FilePreview({
         }
         
         // Generate actual file preview
-        if (file instanceof File) {
-          // For real files
+        if (isFileObject(file)) {
+          // For real File objects
           const preview = await generateFilePreview(file);
           setPreviewUrl(preview);
         } else if ((file as FileInfo).previewUrl) {
@@ -81,7 +86,7 @@ export function FilePreview({
       if (onDownload) {
         onDownload();
       } else {
-        toast.success(`${file instanceof File ? file.name : (file as FileInfo).name} is being downloaded`);
+        toast.success(`${isFileObject(file) ? file.name : (file as FileInfo).name} is being downloaded`);
       }
     } else if (onDownload) {
       onDownload();
@@ -172,9 +177,9 @@ export function FilePreview({
     }
     
     // Get file type and name safely
-    const fileType = file instanceof File ? file.type : (file as FileInfo).type || '';
-    const fileName = file instanceof File ? file.name : (file as FileInfo).name;
-    const fileExt = file instanceof File 
+    const fileType = isFileObject(file) ? file.type : (file as FileInfo).type || '';
+    const fileName = isFileObject(file) ? file.name : (file as FileInfo).name;
+    const fileExt = isFileObject(file) 
       ? file.name.split('.').pop()?.toLowerCase() 
       : (file as FileInfo).extension.toLowerCase();
     
@@ -213,7 +218,7 @@ export function FilePreview({
         <FileText className="h-16 w-16 text-muted-foreground mb-4" />
         <p className="font-medium">{fileName}</p>
         <p className="text-sm text-muted-foreground">
-          {file instanceof File ? `${formatFileSize(file.size)}` : (file as FileInfo).size}
+          {isFileObject(file) ? formatFileSize(file.size) : (file as FileInfo).size}
         </p>
       </div>
     );
